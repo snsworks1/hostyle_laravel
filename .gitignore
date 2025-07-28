@@ -37,4 +37,4 @@ Thumbs.db
 .config/composer/
 
 # System files
-snap/
+snap/storage/ssh_key
