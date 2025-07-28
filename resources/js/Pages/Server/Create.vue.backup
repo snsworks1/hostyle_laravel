@@ -1,0 +1,1855 @@
+<script setup>
+import { Head, useForm, router } from '@inertiajs/vue3';
+import { ref } from 'vue';
+
+// props로 DB에서 가져온 플랜 데이터 받기
+const props = defineProps({
+    plans: {
+        type: Array,
+        default: () => []
+    }
+});
+
+const form = useForm({
+    site_name: '',
+    domain: '',
+    region: 'seoul',
+    platform: 'wordpress',
+    plan: 'starter',
+    months: 1
+});
+
+const months = [
+    { value: 1, label: '1개월', discount: 0 },
+    { value: 3, label: '3개월', discount: 5 },
+    { value: 6, label: '6개월', discount: 10 },
+    { value: 12, label: '1년', discount: 20 }
+];
+
+const regions = [
+    { value: 'seoul', label: '서울 (한국)', flag: '🇰🇷', country: 'Korea' },
+    { value: 'tokyo', label: '도쿄 (일본)', flag: '🇯🇵', country: 'Japan' },
+    { value: 'singapore', label: '싱가포르', flag: '🇸🇬', country: 'Singapore' },
+    { value: 'frankfurt', label: '프랑크푸르트 (독일)', flag: '🇩🇪', country: 'Germany' },
+    { value: 'virginia', label: '버지니아 (미국)', flag: '🇺🇸', country: 'USA' }
+];
+
+const platforms = [
+    { value: 'wordpress', label: 'WordPress', icon: '/images/payment_icon/wordpress.png', description: '블로그, 포트폴리오, 쇼핑몰 등' },
+    { value: 'cms', label: 'Hostyle 웹 제작 플랫폼', icon: '/images/payment_icon/cms.png', description: '드래그앤드롭 간편한 웹제작 플랫폼' },
+    { value: 'custom', label: '자체구축', icon: '/images/payment_icon/자체구축.png', description: 'PHP / HTML / CSS / JavaScript' }
+];
+
+// DB에서 가져온 플랜 데이터 사용 (props.plans가 비어있으면 기본값 사용)
+const plans = props.plans.length > 0 ? props.plans : [
+    { 
+        value: 'free', 
+        label: '무료', 
+        price: '0',
+        originalPrice: '0',
+        trialDays: 15,
+        specs: {
+            storage: '1GB',
+            traffic: '10GB/월',
+            domains: '서브도메인',
+            features: ['SEO', '고급 템플릿', '드래그앤드랍 빌더', '실시간 모니터링']
+        }
+    },
+    { 
+        value: 'starter', 
+        label: 'Starter', 
+        price: '9,900',
+        originalPrice: '9,900',
+        annualPrice: '8,900',
+        specs: {
+            storage: '5GB',
+            traffic: '150GB/월',
+            domains: '1개',
+            features: ['SEO', 'SSL', 'SSL 인증서', '개별도메인', '게시판', '고급 템플릿', '드래그앤드랍 빌더', '실시간 모니터링', 'Hostyle 광고제거']
+        }
+    },
+    { 
+        value: 'business', 
+        label: 'Business', 
+        price: '19,900',
+        originalPrice: '19,900',
+        annualPrice: '17,900',
+        specs: {
+            storage: '20GB',
+            traffic: '600GB/월',
+            domains: '5개',
+            features: ['SEO', 'SSL', 'SSL 인증서', '개별도메인', '게시판', '고급 분석', '고급 템플릿', '드래그앤드랍 빌더', '백업', '실시간 모니터링', '방문자 모니터링', '이메일 지원', 'Hostyle 광고제거', '커스텀 스크립트', '회원관리']
+        }
+    },
+    { 
+        value: 'enterprise', 
+        label: 'Enterprise', 
+        price: '39,900',
+        originalPrice: '39,900',
+        annualPrice: '35,900',
+        specs: {
+            storage: '100GB',
+            traffic: '무제한',
+            domains: '무제한',
+            features: ['SEO', 'SSL', 'SSL 인증서', '개별도메인', '게시판', '고급 분석', '고급 템플릿', '드래그앤드랍 빌더', '백업', '실시간 모니터링', '방문자 모니터링', '이메일 지원', '전용 IP', 'Hostyle 광고제거', '커스텀 스크립트', '회원관리']
+        }
+    }
+];
+
+const selectedPlan = ref(plans.find(p => p.value === form.plan));
+
+const updateSelectedPlan = () => {
+    selectedPlan.value = plans.find(p => p.value === form.plan);
+};
+
+const calculateTotalPrice = () => {
+    if (form.plan === 'free') return '0';
+    
+    const plan = plans.find(p => p.value === form.plan);
+    const monthOption = months.find(m => m.value === form.months);
+    
+    if (!plan || !monthOption) return '0';
+    
+    const monthlyPrice = parseInt(plan.price.replace(/,/g, ''));
+    const discount = monthOption.discount / 100;
+    const totalMonths = monthOption.value;
+    
+    const discountedPrice = monthlyPrice * (1 - discount);
+    const totalPrice = discountedPrice * totalMonths;
+    
+    return totalPrice.toLocaleString();
+};
+
+const calculateDiscount = () => {
+    if (form.plan === 'free') return '0';
+    
+    const plan = plans.find(p => p.value === form.plan);
+    const monthOption = months.find(m => m.value === form.months);
+    
+    if (!plan || !monthOption || monthOption.discount === 0) return '0';
+    
+    const monthlyPrice = parseInt(plan.price.replace(/,/g, ''));
+    const discount = monthOption.discount / 100;
+    const totalMonths = monthOption.value;
+    
+    const totalDiscount = monthlyPrice * discount * totalMonths;
+    
+    return totalDiscount.toLocaleString();
+};
+
+const showFeaturesModal = ref(false);
+const showRefundModal = ref(false);
+
+const getAllFeatures = () => {
+    const allFeatures = new Set();
+    plans.forEach(plan => {
+        if (plan.specs && plan.specs.features) {
+            plan.specs.features.forEach(feature => allFeatures.add(feature));
+        }
+    });
+    return Array.from(allFeatures).sort();
+};
+
+const submit = () => {
+    form.post(route('server.payment.dummy'));
+};
+</script>
+
+<template>
+    <Head title="서버 생성" />
+
+    <div class="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900">
+        <!-- 헤더 -->
+        <div class="bg-white/10 backdrop-blur-xl border-b border-white/20">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between items-center py-4">
+                    <div class="flex items-center space-x-4">
+                        <h1 class="text-2xl font-bold text-white">HOSTYLE</h1>
+                        <span class="text-white/70">서버 생성</span>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <Link 
+                            :href="route('server.select')" 
+                            class="text-white/70 hover:text-white transition-colors"
+                        >
+                            서버 목록으로
+                        </Link>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 메인 컨텐츠 -->
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+            <div class="text-center mb-12">
+                <h2 class="text-4xl font-bold text-white mb-4">새 서버를 생성하세요</h2>
+                <p class="text-xl text-white/70">몇 가지 정보만 입력하면 바로 시작할 수 있습니다</p>
+            </div>
+
+            <div class="flex flex-col lg:flex-row gap-8">
+                <!-- 메인 폼 -->
+                <div class="flex-1">
+                    <form @submit.prevent="submit" class="space-y-8">
+                <!-- 1단계: 사이트 정보 -->
+                <div class="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-8">
+                    <h3 class="text-2xl font-bold text-white mb-6">1. 사이트 정보</h3>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <!-- 사이트 이름 -->
+                        <div>
+                            <label class="block text-white font-medium mb-2">사이트 이름 *</label>
+                            <input 
+                                v-model="form.site_name"
+                                type="text"
+                                class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:border-purple-400 focus:outline-none transition-colors"
+                                placeholder="예: 내 블로그"
+                                required
+                            >
+                            <div v-if="form.errors.site_name" class="mt-2 text-red-300 text-sm">{{ form.errors.site_name }}</div>
+                        </div>
+
+                        <!-- 도메인 -->
+                        <div>
+                            <label class="block text-white font-medium mb-2">도메인 *</label>
+                            <div class="relative">
+                                <input 
+                                    v-model="form.domain"
+                                    type="text"
+                                    class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:border-purple-400 focus:outline-none transition-colors pr-20"
+                                    placeholder="예: myblog"
+                                    required
+                                >
+                                <span class="absolute right-3 top-1/2 transform -translate-y-1/2 text-white/50">.hostyle.com</span>
+                            </div>
+                            <div v-if="form.errors.domain" class="mt-2 text-red-300 text-sm">{{ form.errors.domain }}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2단계: 리전 선택 -->
+                <div class="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-8">
+                    <h3 class="text-2xl font-bold text-white mb-6">2. 서버 리전 선택</h3>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div 
+                            v-for="region in regions" 
+                            :key="region.value"
+                            :class="[
+                                'p-4 border-2 rounded-lg cursor-pointer transition-all duration-300',
+                                form.region === region.value 
+                                    ? 'border-purple-400 bg-purple-500/20' 
+                                    : 'border-white/20 bg-white/5 hover:bg-white/10'
+                            ]"
+                            @click="form.region = region.value"
+                        >
+                            <div class="flex items-center space-x-3">
+                                <span class="text-2xl">{{ region.flag }}</span>
+                                <div>
+                                    <div class="text-white font-medium">{{ region.label }}</div>
+                                    <div class="text-white/50 text-sm">낮은 지연시간</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3단계: 플랫폼 선택 -->
+                <div class="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-8">
+                    <h3 class="text-2xl font-bold text-white mb-6">3. 플랫폼 선택</h3>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div 
+                            v-for="platform in platforms" 
+                            :key="platform.value"
+                            :class="[
+                                'p-6 border-2 rounded-lg cursor-pointer transition-all duration-300',
+                                form.platform === platform.value 
+                                    ? 'border-purple-400 bg-purple-500/20' 
+                                    : 'border-white/20 bg-white/5 hover:bg-white/10'
+                            ]"
+                            @click="form.platform = platform.value"
+                        >
+                            <div class="text-center">
+                                <div class="mb-3 flex justify-center">
+                                    <img 
+                                        :src="platform.icon" 
+                                        :alt="platform.label"
+                                        class="w-16 h-16 object-contain"
+                                    >
+                                </div>
+                                <div class="text-white font-bold text-lg mb-2">{{ platform.label }}</div>
+                                <div class="text-white/60 text-sm">{{ platform.description }}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 4단계: 요금제 선택 -->
+                <div class="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-8">
+                    <div class="flex justify-between items-center mb-6">
+                        <h3 class="text-2xl font-bold text-white">4. 요금제 선택</h3>
+                        <button 
+                            type="button"
+                            @click="showFeaturesModal = true"
+                            class="bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium py-2 px-4 rounded-lg transition-colors flex items-center space-x-2"
+                        >
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                            </svg>
+                            <span>기능보기</span>
+                        </button>
+                    </div>
+                    
+                    <!-- 사용 개월수 선택 (무료 제외) -->
+                    <div v-if="form.plan !== 'free'" class="mb-6">
+                        <h4 class="text-lg font-bold text-white mb-4">사용 기간 선택</h4>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                            <div 
+                                v-for="month in months" 
+                                :key="month.value"
+                                :class="[
+                                    'p-3 border-2 rounded-lg cursor-pointer transition-all duration-300 text-center',
+                                    form.months === month.value 
+                                        ? 'border-purple-400 bg-purple-500/20' 
+                                        : 'border-white/20 bg-white/5 hover:bg-white/10'
+                                ]"
+                                @click="form.months = month.value"
+                            >
+                                <div class="text-white font-bold">{{ month.label }}</div>
+                                <div v-if="month.discount > 0" class="text-green-400 text-sm font-bold">
+                                    {{ month.discount }}% 할인
+                                </div>
+                                <div v-else class="text-white/50 text-sm">할인 없음</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div
+                            v-for="plan in plans"
+                            :key="plan.value"
+                            :class="[
+                                'p-4 border-2 rounded-lg cursor-pointer transition-all duration-300 flex flex-col',
+                                form.plan === plan.value
+                                    ? 'border-purple-400 bg-purple-500/20'
+                                    : 'border-white/20 bg-white/5 hover:bg-white/10'
+                            ]"
+                            @click="form.plan = plan.value; updateSelectedPlan()"
+                        >
+                            <div class="text-center flex flex-col flex-1">
+                                <!-- 무료 플랜: 플랜명(무료) 제거, 15일 무료 뱃지만 약간 크게 -->
+                                <div v-if="plan.value === 'free'" class="mb-2">
+                                    <span class="bg-gradient-to-r from-green-500 to-blue-500 text-white px-3 py-1 rounded-full text-sm font-bold">
+                                        {{ plan.trialDays }}일 무료
+                                    </span>
+                                </div>
+                                <div v-else class="text-white font-bold text-lg mb-1">{{ plan.label }}</div>
+                                <!-- 금액 폰트 기존보다 한 단계 작게 -->
+                                <div v-if="plan.value === 'free'" class="text-lg font-bold text-green-400 mb-1">₩{{ plan.price }}</div>
+                                <div v-else class="text-lg font-bold text-purple-400 mb-1">₩{{ plan.price }}/월</div>
+                                <!-- 연간 할인 -->
+                                <div v-if="plan.annualPrice" class="text-xs text-white/60 mb-2">
+                                    연간 ₩{{ plan.annualPrice }}/월
+                                </div>
+                                <!-- 스펙 정보 -->
+                                <div class="space-y-1 text-xs text-white/70 mb-3">
+                                    <div class="flex justify-between">
+                                        <span>저장</span>
+                                        <span class="text-white">{{ plan.specs.storage }}</span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span>트래픽</span>
+                                        <span class="text-white">{{ plan.specs.traffic }}</span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span>도메인</span>
+                                        <span class="text-white">{{ plan.specs.domains }}</span>
+                                    </div>
+                                </div>
+                                <!-- 주요 기능 (3개만) -->
+                                <div v-if="plan.specs.features" class="text-xs text-white/60 mb-3 flex-1">
+                                    <div v-for="feature in plan.specs.features.slice(0, 3)" :key="feature" class="flex items-center justify-center mb-1">
+                                        <svg class="w-3 h-3 text-green-400 mr-1 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                                        </svg>
+                                        <span class="truncate">{{ feature }}</span>
+                                    </div>
+                                </div>
+                                <!-- 제한사항 (무료만) -->
+                                <div v-if="plan.limitations && plan.value === 'free'" class="mt-auto text-xs text-red-300">
+                                    <div class="flex items-center justify-center">
+                                        <svg class="w-3 h-3 text-red-400 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                            <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                                        </svg>
+                                        {{ plan.limitations[0] }}
+                                    </div>
+                                </div>
+                                <!-- 추천 문구 -->
+                                <div class="mt-3 text-xs text-white/80 font-semibold">
+                                    <template v-if="plan.value === 'free'">개인 실험/테스트, 소규모 임시 사이트에 적합</template>
+                                    <template v-else-if="plan.value === 'starter'">개인 블로그, 포트폴리오, 소규모 홈페이지 추천</template>
+                                    <template v-else-if="plan.value === 'business'">중소기업, 단체, 트래픽 많은 사이트에 추천</template>
+                                    <template v-else-if="plan.value === 'enterprise'">대규모 서비스, 기업/기관, 고성능이 필요한 경우</template>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                    </form>
+                </div>
+
+                <!-- 주문 요약 사이드바 (데스크톱) -->
+                <div class="hidden lg:block w-80">
+                    <div class="sticky top-8">
+                        <div class="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-6">
+                            <!-- 무료 체험 안내 -->
+                            <div v-if="form.plan === 'free'" class="bg-gradient-to-r from-green-500/20 to-blue-500/20 border border-green-400/30 rounded-lg p-4 mb-6">
+                                <div class="flex items-center space-x-3">
+                                    <svg class="w-6 h-6 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <div>
+                                        <div class="text-green-400 font-bold">15일 무료 체험</div>
+                                        <div class="text-green-300 text-sm">무료 기간 종료 후 10일 내 결제하지 않으면 자동 삭제됩니다</div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <h3 class="text-xl font-bold text-white mb-4">주문 요약</h3>
+                            
+                            <div class="space-y-3 mb-6">
+                                <div class="flex justify-between text-white text-sm">
+                                    <span>사이트 이름</span>
+                                    <span>{{ form.site_name || '입력 필요' }}</span>
+                                </div>
+                                <div class="flex justify-between text-white text-sm">
+                                    <span>도메인</span>
+                                    <span>{{ form.domain ? form.domain + '.hostyle.com' : '입력 필요' }}</span>
+                                </div>
+                                <div class="flex justify-between text-white text-sm">
+                                    <span>리전</span>
+                                    <span>{{ regions.find(r => r.value === form.region)?.label }}</span>
+                                </div>
+                                <div class="flex justify-between text-white text-sm">
+                                    <span>플랫폼</span>
+                                    <span>{{ platforms.find(p => p.value === form.platform)?.label }}</span>
+                                </div>
+                                <div class="flex justify-between text-white text-sm">
+                                    <span>요금제</span>
+                                    <span>{{ selectedPlan?.label }}</span>
+                                </div>
+                                <div v-if="form.plan !== 'free'" class="flex justify-between text-white text-sm">
+                                    <span>사용 기간</span>
+                                    <span>{{ months.find(m => m.value === form.months)?.label }}</span>
+                                </div>
+                                
+                                <div class="border-t border-white/20 pt-3">
+                                    <div v-if="form.plan === 'free'" class="flex justify-between text-xl font-bold text-white">
+                                        <span>요금</span>
+                                        <span>₩{{ selectedPlan?.price }}</span>
+                                    </div>
+                                    <div v-else class="space-y-2">
+                                        <div class="flex justify-between text-white text-sm">
+                                            <span>월 요금</span>
+                                            <span>₩{{ selectedPlan?.price }}</span>
+                                        </div>
+                                        <div v-if="months.find(m => m.value === form.months)?.discount > 0" class="flex justify-between text-green-400 text-sm">
+                                            <span>{{ months.find(m => m.value === form.months)?.discount }}% 할인</span>
+                                            <span>-₩{{ calculateDiscount() }}</span>
+                                        </div>
+                                        <div class="flex justify-between text-xl font-bold text-white border-t border-white/20 pt-2">
+                                            <span>총 요금</span>
+                                            <span>₩{{ calculateTotalPrice() }}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- 환불 정책 -->
+                            <div class="bg-white/5 rounded-lg p-3 mb-6">
+                                <h4 class="text-white font-bold mb-2 text-sm">환불 정책</h4>
+                                <div class="text-white/70 text-xs space-y-1">
+                                    <div>• 14일 이내: 일할 계산 환불</div>
+                                    <div>• 15일 이후: 1개월 사용으로 간주</div>
+                                    <div>• 할인 금액은 위약금으로 차감</div>
+                                    <div class="text-white/50 text-xs mt-2">
+                                        * 1개월 결제는 14일 이후 환불 불가
+                                    </div>
+                                </div>
+                                <button 
+                                    @click="showRefundModal = true"
+                                    class="text-purple-400 hover:text-purple-300 text-xs mt-2 underline"
+                                >
+                                    자세한 환불 정책 보기
+                                </button>
+                            </div>
+                            
+                            <!-- 서버 생성 버튼 -->
+                            <button 
+                                type="submit"
+                                :disabled="form.processing || !form.site_name || !form.domain"
+                                class="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-bold py-3 px-4 rounded-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                                @click="submit"
+                            >
+                                <span v-if="form.processing">생성 중...</span>
+                                <span v-else>서버 생성하기</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 주문 요약 하단 고정 (모바일) -->
+            <div class="lg:hidden fixed bottom-0 left-0 right-0 bg-gradient-to-r from-purple-900 to-blue-900 border-t border-white/20 p-4 z-40">
+                <!-- 모바일 하단 여백 -->
+                <div class="h-20"></div>
+                <div class="flex items-center justify-between">
+                    <div class="flex-1">
+                        <div class="text-white font-bold">{{ selectedPlan?.label }}</div>
+                        <div class="text-white/70 text-sm">₩{{ calculateTotalPrice() }}</div>
+                    </div>
+                    <button 
+                        type="submit"
+                        :disabled="form.processing || !form.site_name || !form.domain"
+                        class="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-bold py-3 px-6 rounded-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                        @click="submit"
+                    >
+                        <span v-if="form.processing">생성 중...</span>
+                        <span v-else>서버 생성</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 기능 비교 모달 -->
+        <div v-if="showFeaturesModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div class="bg-gradient-to-br from-purple-900 to-blue-900 border border-white/20 rounded-2xl max-w-6xl w-full max-h-[90vh] overflow-hidden">
+                <!-- 모달 헤더 -->
+                <div class="bg-white/10 backdrop-blur-xl border-b border-white/20 p-6">
+                    <div class="flex justify-between items-center">
+                        <h3 class="text-2xl font-bold text-white">요금제별 기능 비교</h3>
+                        <button 
+                            @click="showFeaturesModal = false"
+                            class="text-white/70 hover:text-white transition-colors"
+                        >
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- 모달 컨텐츠 -->
+                <div class="p-6 overflow-auto max-h-[calc(90vh-120px)]">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <!-- 테이블 헤더 -->
+                            <thead>
+                                <tr class="border-b border-white/20">
+                                    <th class="text-left py-3 px-4 text-white font-bold">기능</th>
+                                    <th v-for="plan in plans" :key="plan.value" class="text-center py-3 px-4 text-white font-bold">
+                                        <div class="text-lg">{{ plan.label }}</div>
+                                        <div v-if="plan.value === 'free'" class="text-xs text-green-400">{{ plan.trialDays }}일 무료</div>
+                                        <div v-else class="text-xs text-purple-400">₩{{ plan.price }}/월</div>
+                                    </th>
+                                </tr>
+                            </thead>
+                            
+                            <!-- 테이블 바디 -->
+                            <tbody>
+                                <!-- 스펙 정보 -->
+                                <tr class="border-b border-white/10">
+                                    <td class="py-3 px-4 text-white font-medium bg-white/5">저장공간</td>
+                                    <td v-for="plan in plans" :key="plan.value" class="text-center py-3 px-4 text-white">
+                                        {{ plan.specs.storage }}
+                                    </td>
+                                </tr>
+                                <tr class="border-b border-white/10">
+                                    <td class="py-3 px-4 text-white font-medium bg-white/5">트래픽</td>
+                                    <td v-for="plan in plans" :key="plan.value" class="text-center py-3 px-4 text-white">
+                                        {{ plan.specs.traffic }}
+                                    </td>
+                                </tr>
+                                <tr class="border-b border-white/10">
+                                    <td class="py-3 px-4 text-white font-medium bg-white/5">서브도메인</td>
+                                    <td v-for="plan in plans" :key="plan.value" class="text-center py-3 px-4 text-white">
+                                        {{ plan.specs.domains }}
+                                    </td>
+                                </tr>
+                                
+                                <!-- 기능들 -->
+                                <tr class="border-b border-white/10">
+                                    <td class="py-3 px-4 text-white">Hostyle 광고제거</td>
+                                    <td v-for="plan in plans" :key="plan.value" class="text-center py-3 px-4">
+                                        <div v-if="plan.specs.features.includes('Hostyle 광고제거')" class="text-green-400">
+                                            <svg class="w-5 h-5 mx-auto" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                                            </svg>
+                                        </div>
+                                        <div v-else class="text-red-400">
+                                            <svg class="w-5 h-5 mx-auto" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                                            </svg>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <tr class="border-b border-white/10">
+                                    <td class="py-3 px-4 text-white">SEO</td>
+                                    <td v-for="plan in plans" :key="plan.value" class="text-center py-3 px-4">
+                                        <div v-if="plan.specs.features.includes('SEO')" class="text-green-400">
+                                            <svg class="w-5 h-5 mx-auto" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                                            </svg>
+                                        </div>
+                                        <div v-else class="text-white/30">-</div>
+                                    </td>
+                                </tr>
+                                <tr class="border-b border-white/10">
+                                    <td class="py-3 px-4 text-white">SSL</td>
+                                    <td v-for="plan in plans" :key="plan.value" class="text-center py-3 px-4">
+                                        <div v-if="plan.specs.features.includes('SSL')" class="text-green-400">
+                                            <svg class="w-5 h-5 mx-auto" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                                            </svg>
+                                        </div>
+                                        <div v-else class="text-red-400">
+                                            <svg class="w-5 h-5 mx-auto" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                                            </svg>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <tr class="border-b border-white/10">
+                                    <td class="py-3 px-4 text-white">SSL 인증서</td>
+                                    <td v-for="plan in plans" :key="plan.value" class="text-center py-3 px-4">
+                                        <div v-if="plan.specs.features.includes('SSL 인증서')" class="text-green-400">
+                                            <svg class="w-5 h-5 mx-auto" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                                            </svg>
+                                        </div>
+                                        <div v-else class="text-red-400">
+                                            <svg class="w-5 h-5 mx-auto" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                                            </svg>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <tr class="border-b border-white/10">
+                                    <td class="py-3 px-4 text-white">개별도메인</td>
+                                    <td v-for="plan in plans" :key="plan.value" class="text-center py-3 px-4">
+                                        <div v-if="plan.specs.features.includes('개별도메인')" class="text-green-400">
+                                            <svg class="w-5 h-5 mx-auto" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                                            </svg>
+                                        </div>
+                                        <div v-else class="text-red-400">
+                                            <svg class="w-5 h-5 mx-auto" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                                            </svg>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <tr class="border-b border-white/10">
+                                    <td class="py-3 px-4 text-white">게시판</td>
+                                    <td v-for="plan in plans" :key="plan.value" class="text-center py-3 px-4">
+                                        <div v-if="plan.specs.features.includes('게시판')" class="text-green-400">
+                                            <svg class="w-5 h-5 mx-auto" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                                            </svg>
+                                        </div>
+                                        <div v-else class="text-red-400">
+                                            <svg class="w-5 h-5 mx-auto" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                                            </svg>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <tr class="border-b border-white/10">
+                                    <td class="py-3 px-4 text-white">고급 분석</td>
+                                    <td v-for="plan in plans" :key="plan.value" class="text-center py-3 px-4">
+                                        <div v-if="plan.specs.features.includes('고급 분석')" class="text-green-400">
+                                            <svg class="w-5 h-5 mx-auto" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                                            </svg>
+                                        </div>
+                                        <div v-else class="text-red-400">
+                                            <svg class="w-5 h-5 mx-auto" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                                            </svg>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <tr class="border-b border-white/10">
+                                    <td class="py-3 px-4 text-white">고급 템플릿</td>
+                                    <td v-for="plan in plans" :key="plan.value" class="text-center py-3 px-4">
+                                        <div v-if="plan.specs.features.includes('고급 템플릿')" class="text-green-400">
+                                            <svg class="w-5 h-5 mx-auto" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                                            </svg>
+                                        </div>
+                                        <div v-else class="text-white/30">-</div>
+                                    </td>
+                                </tr>
+                                <tr class="border-b border-white/10">
+                                    <td class="py-3 px-4 text-white">드래그앤드랍 빌더</td>
+                                    <td v-for="plan in plans" :key="plan.value" class="text-center py-3 px-4">
+                                        <div v-if="plan.specs.features.includes('드래그앤드랍 빌더')" class="text-green-400">
+                                            <svg class="w-5 h-5 mx-auto" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                                            </svg>
+                                        </div>
+                                        <div v-else class="text-white/30">-</div>
+                                    </td>
+                                </tr>
+                                <tr class="border-b border-white/10">
+                                    <td class="py-3 px-4 text-white">백업</td>
+                                    <td v-for="plan in plans" :key="plan.value" class="text-center py-3 px-4">
+                                        <div v-if="plan.specs.features.includes('백업')" class="text-green-400">
+                                            <svg class="w-5 h-5 mx-auto" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                                            </svg>
+                                        </div>
+                                        <div v-else class="text-red-400">
+                                            <svg class="w-5 h-5 mx-auto" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                                            </svg>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <tr class="border-b border-white/10">
+                                    <td class="py-3 px-4 text-white">실시간 모니터링</td>
+                                    <td v-for="plan in plans" :key="plan.value" class="text-center py-3 px-4">
+                                        <div v-if="plan.specs.features.includes('실시간 모니터링')" class="text-green-400">
+                                            <svg class="w-5 h-5 mx-auto" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                                            </svg>
+                                        </div>
+                                        <div v-else class="text-white/30">-</div>
+                                    </td>
+                                </tr>
+                                <tr class="border-b border-white/10">
+                                    <td class="py-3 px-4 text-white">방문자 모니터링</td>
+                                    <td v-for="plan in plans" :key="plan.value" class="text-center py-3 px-4">
+                                        <div v-if="plan.specs.features.includes('방문자 모니터링')" class="text-green-400">
+                                            <svg class="w-5 h-5 mx-auto" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                                            </svg>
+                                        </div>
+                                        <div v-else class="text-red-400">
+                                            <svg class="w-5 h-5 mx-auto" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                                            </svg>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <tr class="border-b border-white/10">
+                                    <td class="py-3 px-4 text-white">이메일 지원</td>
+                                    <td v-for="plan in plans" :key="plan.value" class="text-center py-3 px-4">
+                                        <div v-if="plan.specs.features.includes('이메일 지원')" class="text-green-400">
+                                            <svg class="w-5 h-5 mx-auto" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                                            </svg>
+                                        </div>
+                                        <div v-else class="text-red-400">
+                                            <svg class="w-5 h-5 mx-auto" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                                            </svg>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <tr class="border-b border-white/10">
+                                    <td class="py-3 px-4 text-white">전용 IP</td>
+                                    <td v-for="plan in plans" :key="plan.value" class="text-center py-3 px-4">
+                                        <div v-if="plan.specs.features.includes('전용 IP')" class="text-green-400">
+                                            <svg class="w-5 h-5 mx-auto" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                                            </svg>
+                                        </div>
+                                        <div v-else class="text-red-400">
+                                            <svg class="w-5 h-5 mx-auto" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                                            </svg>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <tr class="border-b border-white/10">
+                                    <td class="py-3 px-4 text-white">커스텀 스크립트</td>
+                                    <td v-for="plan in plans" :key="plan.value" class="text-center py-3 px-4">
+                                        <div v-if="plan.specs.features.includes('커스텀 스크립트')" class="text-green-400">
+                                            <svg class="w-5 h-5 mx-auto" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                                            </svg>
+                                        </div>
+                                        <div v-else class="text-red-400">
+                                            <svg class="w-5 h-5 mx-auto" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                                            </svg>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <tr class="border-b border-white/10">
+                                    <td class="py-3 px-4 text-white">회원관리</td>
+                                    <td v-for="plan in plans" :key="plan.value" class="text-center py-3 px-4">
+                                        <div v-if="plan.specs.features.includes('회원관리')" class="text-green-400">
+                                            <svg class="w-5 h-5 mx-auto" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                                            </svg>
+                                        </div>
+                                        <div v-else class="text-red-400">
+                                            <svg class="w-5 h-5 mx-auto" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                                            </svg>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 환불 정책 모달 -->
+        <div v-if="showRefundModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div class="bg-gradient-to-br from-purple-900 to-blue-900 border border-white/20 rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
+                <!-- 모달 헤더 -->
+                <div class="bg-white/10 backdrop-blur-xl border-b border-white/20 p-6">
+                    <div class="flex justify-between items-center">
+                        <h3 class="text-2xl font-bold text-white">환불 정책</h3>
+                        <button 
+                            @click="showRefundModal = false"
+                            class="text-white/70 hover:text-white transition-colors"
+                        >
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- 모달 컨텐츠 -->
+                <div class="p-6 overflow-auto max-h-[calc(90vh-120px)]">
+                    <div class="space-y-6">
+                        <!-- 환불 기간 -->
+                        <div>
+                            <h4 class="text-lg font-bold text-white mb-3">환불 기간</h4>
+                            <div class="bg-white/5 rounded-lg p-4 space-y-3">
+                                <div class="flex items-center space-x-3">
+                                    <div class="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
+                                        <span class="text-white font-bold text-sm">1</span>
+                                    </div>
+                                    <div>
+                                        <div class="text-white font-medium">14일 이내</div>
+                                        <div class="text-white/70 text-sm">일할 계산 환불</div>
+                                    </div>
+                                </div>
+                                <div class="flex items-center space-x-3">
+                                    <div class="w-8 h-8 bg-yellow-500 rounded-full flex items-center justify-center">
+                                        <span class="text-white font-bold text-sm">2</span>
+                                    </div>
+                                    <div>
+                                        <div class="text-white font-medium">15일 이후</div>
+                                        <div class="text-white/70 text-sm">1개월 사용으로 간주</div>
+                                    </div>
+                                </div>
+                                <div class="flex items-center space-x-3">
+                                    <div class="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center">
+                                        <span class="text-white font-bold text-sm">3</span>
+                                    </div>
+                                    <div>
+                                        <div class="text-white font-medium">1개월 결제</div>
+                                        <div class="text-white/70 text-sm">14일 이후 환불 불가</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 중요 안내 -->
+                        <div>
+                            <h4 class="text-lg font-bold text-white mb-3">중요 안내</h4>
+                            <div class="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4">
+                                <div class="text-yellow-400 font-bold mb-2">⚠️ 할인 금액은 위약금으로 차감</div>
+                                <div class="text-white/80 text-sm space-y-2">
+                                    <div>• 3/6/12개월 할인 금액은 환불 시 위약금으로 차감</div>
+                                    <div>• 1개월 결제는 14일 이후 환불 불가</div>
+                                    <div>• 무료 체험 기간 중에는 환불 정책 적용되지 않음</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 환불 가능 사유 -->
+                        <div>
+                            <h4 class="text-lg font-bold text-white mb-3">환불 가능 사유</h4>
+                            <div class="bg-white/5 rounded-lg p-4 space-y-2">
+                                <div class="text-white/80 text-sm">• 서비스 품질 문제 (성능, 안정성 등)</div>
+                                <div class="text-white/80 text-sm">• 회사의 귀책 사유로 인한 서비스 장애</div>
+                                <div class="text-white/80 text-sm">• 단순 변심 (14일 이내)</div>
+                            </div>
+                        </div>
+
+                        <!-- 환불 제한 사유 -->
+                        <div>
+                            <h4 class="text-lg font-bold text-white mb-3">환불 제한 사유</h4>
+                            <div class="bg-white/5 rounded-lg p-4 space-y-2">
+                                <div class="text-white/80 text-sm">• 1개월 결제 후 14일 이후</div>
+                                <div class="text-white/80 text-sm">• 무료 체험 기간 중</div>
+                                <div class="text-white/80 text-sm">• 서비스 이용 약관 위반 시</div>
+                            </div>
+                        </div>
+
+                        <!-- 환불 금액 계산 -->
+                        <div>
+                            <h4 class="text-lg font-bold text-white mb-3">환불 금액 계산</h4>
+                            <div class="bg-white/5 rounded-lg p-4 space-y-3">
+                                <div class="text-white/80 text-sm font-bold">1개월 결제</div>
+                                <div class="text-white/60 text-xs ml-4">
+                                    • 14일 이내: 일할 계산 환불<br>
+                                    • 15일 이후: 환불 불가
+                                </div>
+                                
+                                <div class="text-white/80 text-sm font-bold">3/6/12개월 결제</div>
+                                <div class="text-white/60 text-xs ml-4">
+                                    • 5일 사용: 1개월치 일할 계산 + 나머지 개월 전액 환불<br>
+                                    • 15일 사용: 1개월 사용으로 간주 + 나머지 개월 전액 환불<br>
+                                    • 할인 금액은 위약금으로 차감
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="text-center text-white/50 text-xs mt-6">
+                            본 환불 정책은 전자상거래법 및 소비자보호법을 준수합니다.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</template>
+
+<script setup>
+import { Head, useForm, router } from '@inertiajs/vue3';
+import { ref } from 'vue';
+
+// props로 DB에서 가져온 플랜 데이터 받기
+const props = defineProps({
+    plans: {
+        type: Array,
+        default: () => []
+    }
+});
+
+const form = useForm({
+    site_name: '',
+    domain: '',
+    region: 'seoul',
+    platform: 'wordpress',
+    plan: 'starter',
+    months: 1
+});
+
+const months = [
+    { value: 1, label: '1개월', discount: 0 },
+    { value: 3, label: '3개월', discount: 5 },
+    { value: 6, label: '6개월', discount: 10 },
+    { value: 12, label: '1년', discount: 20 }
+];
+
+const regions = [
+    { value: 'seoul', label: '서울 (한국)', flag: '🇰🇷', country: 'Korea' },
+    { value: 'tokyo', label: '도쿄 (일본)', flag: '🇯🇵', country: 'Japan' },
+    { value: 'singapore', label: '싱가포르', flag: '🇸🇬', country: 'Singapore' },
+    { value: 'frankfurt', label: '프랑크푸르트 (독일)', flag: '🇩🇪', country: 'Germany' },
+    { value: 'virginia', label: '버지니아 (미국)', flag: '🇺🇸', country: 'USA' }
+];
+
+const platforms = [
+    { value: 'wordpress', label: 'WordPress', icon: '/images/payment_icon/wordpress.png', description: '블로그, 포트폴리오, 쇼핑몰 등' },
+    { value: 'cms', label: 'Hostyle 웹 제작 플랫폼', icon: '/images/payment_icon/cms.png', description: '드래그앤드롭 간편한 웹제작 플랫폼' },
+    { value: 'custom', label: '자체구축', icon: '/images/payment_icon/자체구축.png', description: 'PHP / HTML / CSS / JavaScript' }
+];
+
+// DB에서 가져온 플랜 데이터 사용 (props.plans가 비어있으면 기본값 사용)
+const plans = props.plans.length > 0 ? props.plans : [
+    { 
+        value: 'free', 
+        label: '무료', 
+        price: '0',
+        originalPrice: '0',
+        trialDays: 15,
+        specs: {
+            storage: '1GB',
+            traffic: '10GB/월',
+            domains: '서브도메인',
+            features: ['SEO', '고급 템플릿', '드래그앤드랍 빌더', '실시간 모니터링']
+        }
+    },
+    { 
+        value: 'starter', 
+        label: 'Starter', 
+        price: '9,900',
+        originalPrice: '9,900',
+        annualPrice: '8,900',
+        specs: {
+            storage: '5GB',
+            traffic: '150GB/월',
+            domains: '1개',
+            features: ['SEO', 'SSL', 'SSL 인증서', '개별도메인', '게시판', '고급 템플릿', '드래그앤드랍 빌더', '실시간 모니터링', 'Hostyle 광고제거']
+        }
+    },
+    { 
+        value: 'business', 
+        label: 'Business', 
+        price: '19,900',
+        originalPrice: '19,900',
+        annualPrice: '17,900',
+        specs: {
+            storage: '20GB',
+            traffic: '600GB/월',
+            domains: '5개',
+            features: ['SEO', 'SSL', 'SSL 인증서', '개별도메인', '게시판', '고급 분석', '고급 템플릿', '드래그앤드랍 빌더', '백업', '실시간 모니터링', '방문자 모니터링', '이메일 지원', 'Hostyle 광고제거', '커스텀 스크립트', '회원관리']
+        }
+    },
+    { 
+        value: 'enterprise', 
+        label: 'Enterprise', 
+        price: '39,900',
+        originalPrice: '39,900',
+        annualPrice: '35,900',
+        specs: {
+            storage: '100GB',
+            traffic: '무제한',
+            domains: '무제한',
+            features: ['SEO', 'SSL', 'SSL 인증서', '개별도메인', '게시판', '고급 분석', '고급 템플릿', '드래그앤드랍 빌더', '백업', '실시간 모니터링', '방문자 모니터링', '이메일 지원', '전용 IP', 'Hostyle 광고제거', '커스텀 스크립트', '회원관리']
+        }
+    }
+];
+
+const selectedPlan = ref(plans.find(p => p.value === form.plan));
+
+const updateSelectedPlan = () => {
+    selectedPlan.value = plans.find(p => p.value === form.plan);
+};
+
+const calculateTotalPrice = () => {
+    if (form.plan === 'free') return '0';
+    
+    const plan = plans.find(p => p.value === form.plan);
+    const monthOption = months.find(m => m.value === form.months);
+    
+    if (!plan || !monthOption) return '0';
+    
+    const monthlyPrice = parseInt(plan.price.replace(/,/g, ''));
+    const discount = monthOption.discount / 100;
+    const totalMonths = monthOption.value;
+    
+    const discountedPrice = monthlyPrice * (1 - discount);
+    const totalPrice = discountedPrice * totalMonths;
+    
+    return totalPrice.toLocaleString();
+};
+
+const calculateDiscount = () => {
+    if (form.plan === 'free') return '0';
+    
+    const plan = plans.find(p => p.value === form.plan);
+    const monthOption = months.find(m => m.value === form.months);
+    
+    if (!plan || !monthOption || monthOption.discount === 0) return '0';
+    
+    const monthlyPrice = parseInt(plan.price.replace(/,/g, ''));
+    const discount = monthOption.discount / 100;
+    const totalMonths = monthOption.value;
+    
+    const totalDiscount = monthlyPrice * discount * totalMonths;
+    
+    return totalDiscount.toLocaleString();
+};
+
+const showFeaturesModal = ref(false);
+const showRefundModal = ref(false);
+
+const getAllFeatures = () => {
+    const allFeatures = new Set();
+    plans.forEach(plan => {
+        if (plan.specs && plan.specs.features) {
+            plan.specs.features.forEach(feature => allFeatures.add(feature));
+        }
+    });
+    return Array.from(allFeatures).sort();
+};
+
+const submit = () => {
+    form.post(route('server.payment.dummy'));
+};
+</script>
+
+<template>
+    <Head title="서버 생성" />
+
+    <div class="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900">
+        <!-- 헤더 -->
+        <div class="bg-white/10 backdrop-blur-xl border-b border-white/20">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between items-center py-4">
+                    <div class="flex items-center space-x-4">
+                        <h1 class="text-2xl font-bold text-white">HOSTYLE</h1>
+                        <span class="text-white/70">서버 생성</span>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <Link 
+                            :href="route('server.select')" 
+                            class="text-white/70 hover:text-white transition-colors"
+                        >
+                            서버 목록으로
+                        </Link>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 메인 컨텐츠 -->
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+            <div class="text-center mb-12">
+                <h2 class="text-4xl font-bold text-white mb-4">새 서버를 생성하세요</h2>
+                <p class="text-xl text-white/70">몇 가지 정보만 입력하면 바로 시작할 수 있습니다</p>
+            </div>
+
+            <div class="flex flex-col lg:flex-row gap-8">
+                <!-- 메인 폼 -->
+                <div class="flex-1">
+                    <form @submit.prevent="submit" class="space-y-8">
+                <!-- 1단계: 사이트 정보 -->
+                <div class="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-8">
+                    <h3 class="text-2xl font-bold text-white mb-6">1. 사이트 정보</h3>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <!-- 사이트 이름 -->
+                        <div>
+                            <label class="block text-white font-medium mb-2">사이트 이름 *</label>
+                            <input 
+                                v-model="form.site_name"
+                                type="text"
+                                class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:border-purple-400 focus:outline-none transition-colors"
+                                placeholder="예: 내 블로그"
+                                required
+                            >
+                            <div v-if="form.errors.site_name" class="mt-2 text-red-300 text-sm">{{ form.errors.site_name }}</div>
+                        </div>
+
+                        <!-- 도메인 -->
+                        <div>
+                            <label class="block text-white font-medium mb-2">도메인 *</label>
+                            <div class="relative">
+                                <input 
+                                    v-model="form.domain"
+                                    type="text"
+                                    class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:border-purple-400 focus:outline-none transition-colors pr-20"
+                                    placeholder="예: myblog"
+                                    required
+                                >
+                                <span class="absolute right-3 top-1/2 transform -translate-y-1/2 text-white/50">.hostyle.com</span>
+                            </div>
+                            <div v-if="form.errors.domain" class="mt-2 text-red-300 text-sm">{{ form.errors.domain }}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2단계: 리전 선택 -->
+                <div class="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-8">
+                    <h3 class="text-2xl font-bold text-white mb-6">2. 서버 리전 선택</h3>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div 
+                            v-for="region in regions" 
+                            :key="region.value"
+                            :class="[
+                                'p-4 border-2 rounded-lg cursor-pointer transition-all duration-300',
+                                form.region === region.value 
+                                    ? 'border-purple-400 bg-purple-500/20' 
+                                    : 'border-white/20 bg-white/5 hover:bg-white/10'
+                            ]"
+                            @click="form.region = region.value"
+                        >
+                            <div class="flex items-center space-x-3">
+                                <span class="text-2xl">{{ region.flag }}</span>
+                                <div>
+                                    <div class="text-white font-medium">{{ region.label }}</div>
+                                    <div class="text-white/50 text-sm">낮은 지연시간</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3단계: 플랫폼 선택 -->
+                <div class="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-8">
+                    <h3 class="text-2xl font-bold text-white mb-6">3. 플랫폼 선택</h3>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div 
+                            v-for="platform in platforms" 
+                            :key="platform.value"
+                            :class="[
+                                'p-6 border-2 rounded-lg cursor-pointer transition-all duration-300',
+                                form.platform === platform.value 
+                                    ? 'border-purple-400 bg-purple-500/20' 
+                                    : 'border-white/20 bg-white/5 hover:bg-white/10'
+                            ]"
+                            @click="form.platform = platform.value"
+                        >
+                            <div class="text-center">
+                                <div class="mb-3 flex justify-center">
+                                    <img 
+                                        :src="platform.icon" 
+                                        :alt="platform.label"
+                                        class="w-16 h-16 object-contain"
+                                    >
+                                </div>
+                                <div class="text-white font-bold text-lg mb-2">{{ platform.label }}</div>
+                                <div class="text-white/60 text-sm">{{ platform.description }}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 4단계: 요금제 선택 -->
+                <div class="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-8">
+                    <div class="flex justify-between items-center mb-6">
+                        <h3 class="text-2xl font-bold text-white">4. 요금제 선택</h3>
+                        <button 
+                            type="button"
+                            @click="showFeaturesModal = true"
+                            class="bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium py-2 px-4 rounded-lg transition-colors flex items-center space-x-2"
+                        >
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                            </svg>
+                            <span>기능보기</span>
+                        </button>
+                    </div>
+                    
+                    <!-- 사용 개월수 선택 (무료 제외) -->
+                    <div v-if="form.plan !== 'free'" class="mb-6">
+                        <h4 class="text-lg font-bold text-white mb-4">사용 기간 선택</h4>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                            <div 
+                                v-for="month in months" 
+                                :key="month.value"
+                                :class="[
+                                    'p-3 border-2 rounded-lg cursor-pointer transition-all duration-300 text-center',
+                                    form.months === month.value 
+                                        ? 'border-purple-400 bg-purple-500/20' 
+                                        : 'border-white/20 bg-white/5 hover:bg-white/10'
+                                ]"
+                                @click="form.months = month.value"
+                            >
+                                <div class="text-white font-bold">{{ month.label }}</div>
+                                <div v-if="month.discount > 0" class="text-green-400 text-sm font-bold">
+                                    {{ month.discount }}% 할인
+                                </div>
+                                <div v-else class="text-white/50 text-sm">할인 없음</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div
+                            v-for="plan in plans"
+                            :key="plan.value"
+                            :class="[
+                                'p-4 border-2 rounded-lg cursor-pointer transition-all duration-300 flex flex-col',
+                                form.plan === plan.value
+                                    ? 'border-purple-400 bg-purple-500/20'
+                                    : 'border-white/20 bg-white/5 hover:bg-white/10'
+                            ]"
+                            @click="form.plan = plan.value; updateSelectedPlan()"
+                        >
+                            <div class="text-center flex flex-col flex-1">
+                                <!-- 무료 플랜: 플랜명(무료) 제거, 15일 무료 뱃지만 약간 크게 -->
+                                <div v-if="plan.value === 'free'" class="mb-2">
+                                    <span class="bg-gradient-to-r from-green-500 to-blue-500 text-white px-3 py-1 rounded-full text-sm font-bold">
+                                        {{ plan.trialDays }}일 무료
+                                    </span>
+                                </div>
+                                <div v-else class="text-white font-bold text-lg mb-1">{{ plan.label }}</div>
+                                <!-- 금액 폰트 기존보다 한 단계 작게 -->
+                                <div v-if="plan.value === 'free'" class="text-lg font-bold text-green-400 mb-1">₩{{ plan.price }}</div>
+                                <div v-else class="text-lg font-bold text-purple-400 mb-1">₩{{ plan.price }}/월</div>
+                                <!-- 연간 할인 -->
+                                <div v-if="plan.annualPrice" class="text-xs text-white/60 mb-2">
+                                    연간 ₩{{ plan.annualPrice }}/월
+                                </div>
+                                <!-- 스펙 정보 -->
+                                <div class="space-y-1 text-xs text-white/70 mb-3">
+                                    <div class="flex justify-between">
+                                        <span>저장</span>
+                                        <span class="text-white">{{ plan.specs.storage }}</span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span>트래픽</span>
+                                        <span class="text-white">{{ plan.specs.traffic }}</span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span>도메인</span>
+                                        <span class="text-white">{{ plan.specs.domains }}</span>
+                                    </div>
+                                </div>
+                                <!-- 주요 기능 (3개만) -->
+                                <div v-if="plan.specs.features" class="text-xs text-white/60 mb-3 flex-1">
+                                    <div v-for="feature in plan.specs.features.slice(0, 3)" :key="feature" class="flex items-center justify-center mb-1">
+                                        <svg class="w-3 h-3 text-green-400 mr-1 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                                        </svg>
+                                        <span class="truncate">{{ feature }}</span>
+                                    </div>
+                                </div>
+                                <!-- 제한사항 (무료만) -->
+                                <div v-if="plan.limitations && plan.value === 'free'" class="mt-auto text-xs text-red-300">
+                                    <div class="flex items-center justify-center">
+                                        <svg class="w-3 h-3 text-red-400 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                            <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                                        </svg>
+                                        {{ plan.limitations[0] }}
+                                    </div>
+                                </div>
+                                <!-- 추천 문구 -->
+                                <div class="mt-3 text-xs text-white/80 font-semibold">
+                                    <template v-if="plan.value === 'free'">개인 실험/테스트, 소규모 임시 사이트에 적합</template>
+                                    <template v-else-if="plan.value === 'starter'">개인 블로그, 포트폴리오, 소규모 홈페이지 추천</template>
+                                    <template v-else-if="plan.value === 'business'">중소기업, 단체, 트래픽 많은 사이트에 추천</template>
+                                    <template v-else-if="plan.value === 'enterprise'">대규모 서비스, 기업/기관, 고성능이 필요한 경우</template>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                    </form>
+                </div>
+
+                <!-- 주문 요약 사이드바 (데스크톱) -->
+                <div class="hidden lg:block w-80">
+                    <div class="sticky top-8">
+                        <div class="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-6">
+                            <!-- 무료 체험 안내 -->
+                            <div v-if="form.plan === 'free'" class="bg-gradient-to-r from-green-500/20 to-blue-500/20 border border-green-400/30 rounded-lg p-4 mb-6">
+                                <div class="flex items-center space-x-3">
+                                    <svg class="w-6 h-6 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <div>
+                                        <div class="text-green-400 font-bold">15일 무료 체험</div>
+                                        <div class="text-green-300 text-sm">무료 기간 종료 후 10일 내 결제하지 않으면 자동 삭제됩니다</div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <h3 class="text-xl font-bold text-white mb-4">주문 요약</h3>
+                            
+                            <div class="space-y-3 mb-6">
+                                <div class="flex justify-between text-white text-sm">
+                                    <span>사이트 이름</span>
+                                    <span>{{ form.site_name || '입력 필요' }}</span>
+                                </div>
+                                <div class="flex justify-between text-white text-sm">
+                                    <span>도메인</span>
+                                    <span>{{ form.domain ? form.domain + '.hostyle.com' : '입력 필요' }}</span>
+                                </div>
+                                <div class="flex justify-between text-white text-sm">
+                                    <span>리전</span>
+                                    <span>{{ regions.find(r => r.value === form.region)?.label }}</span>
+                                </div>
+                                <div class="flex justify-between text-white text-sm">
+                                    <span>플랫폼</span>
+                                    <span>{{ platforms.find(p => p.value === form.platform)?.label }}</span>
+                                </div>
+                                <div class="flex justify-between text-white text-sm">
+                                    <span>요금제</span>
+                                    <span>{{ selectedPlan?.label }}</span>
+                                </div>
+                                <div v-if="form.plan !== 'free'" class="flex justify-between text-white text-sm">
+                                    <span>사용 기간</span>
+                                    <span>{{ months.find(m => m.value === form.months)?.label }}</span>
+                                </div>
+                                
+                                <div class="border-t border-white/20 pt-3">
+                                    <div v-if="form.plan === 'free'" class="flex justify-between text-xl font-bold text-white">
+                                        <span>요금</span>
+                                        <span>₩{{ selectedPlan?.price }}</span>
+                                    </div>
+                                    <div v-else class="space-y-2">
+                                        <div class="flex justify-between text-white text-sm">
+                                            <span>월 요금</span>
+                                            <span>₩{{ selectedPlan?.price }}</span>
+                                        </div>
+                                        <div v-if="months.find(m => m.value === form.months)?.discount > 0" class="flex justify-between text-green-400 text-sm">
+                                            <span>{{ months.find(m => m.value === form.months)?.discount }}% 할인</span>
+                                            <span>-₩{{ calculateDiscount() }}</span>
+                                        </div>
+                                        <div class="flex justify-between text-xl font-bold text-white border-t border-white/20 pt-2">
+                                            <span>총 요금</span>
+                                            <span>₩{{ calculateTotalPrice() }}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- 환불 정책 -->
+                            <div class="bg-white/5 rounded-lg p-3 mb-6">
+                                <h4 class="text-white font-bold mb-2 text-sm">환불 정책</h4>
+                                <div class="text-white/70 text-xs space-y-1">
+                                    <div>• 14일 이내: 일할 계산 환불</div>
+                                    <div>• 15일 이후: 1개월 사용으로 간주</div>
+                                    <div>• 할인 금액은 위약금으로 차감</div>
+                                    <div class="text-white/50 text-xs mt-2">
+                                        * 1개월 결제는 14일 이후 환불 불가
+                                    </div>
+                                </div>
+                                <button 
+                                    @click="showRefundModal = true"
+                                    class="text-purple-400 hover:text-purple-300 text-xs mt-2 underline"
+                                >
+                                    자세한 환불 정책 보기
+                                </button>
+                            </div>
+                            
+                            <!-- 서버 생성 버튼 -->
+                            <button 
+                                type="submit"
+                                :disabled="form.processing || !form.site_name || !form.domain"
+                                class="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-bold py-3 px-4 rounded-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                                @click="submit"
+                            >
+                                <span v-if="form.processing">생성 중...</span>
+                                <span v-else>서버 생성하기</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 주문 요약 하단 고정 (모바일) -->
+            <div class="lg:hidden fixed bottom-0 left-0 right-0 bg-gradient-to-r from-purple-900 to-blue-900 border-t border-white/20 p-4 z-40">
+                <!-- 모바일 하단 여백 -->
+                <div class="h-20"></div>
+                <div class="flex items-center justify-between">
+                    <div class="flex-1">
+                        <div class="text-white font-bold">{{ selectedPlan?.label }}</div>
+                        <div class="text-white/70 text-sm">₩{{ calculateTotalPrice() }}</div>
+                    </div>
+                    <button 
+                        type="submit"
+                        :disabled="form.processing || !form.site_name || !form.domain"
+                        class="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-bold py-3 px-6 rounded-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                        @click="submit"
+                    >
+                        <span v-if="form.processing">생성 중...</span>
+                        <span v-else>서버 생성</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 기능 비교 모달 -->
+        <div v-if="showFeaturesModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div class="bg-gradient-to-br from-purple-900 to-blue-900 border border-white/20 rounded-2xl max-w-6xl w-full max-h-[90vh] overflow-hidden">
+                <!-- 모달 헤더 -->
+                <div class="bg-white/10 backdrop-blur-xl border-b border-white/20 p-6">
+                    <div class="flex justify-between items-center">
+                        <h3 class="text-2xl font-bold text-white">요금제별 기능 비교</h3>
+                        <button 
+                            @click="showFeaturesModal = false"
+                            class="text-white/70 hover:text-white transition-colors"
+                        >
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- 모달 컨텐츠 -->
+                <div class="p-6 overflow-auto max-h-[calc(90vh-120px)]">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <!-- 테이블 헤더 -->
+                            <thead>
+                                <tr class="border-b border-white/20">
+                                    <th class="text-left py-3 px-4 text-white font-bold">기능</th>
+                                    <th v-for="plan in plans" :key="plan.value" class="text-center py-3 px-4 text-white font-bold">
+                                        <div class="text-lg">{{ plan.label }}</div>
+                                        <div v-if="plan.value === 'free'" class="text-xs text-green-400">{{ plan.trialDays }}일 무료</div>
+                                        <div v-else class="text-xs text-purple-400">₩{{ plan.price }}/월</div>
+                                    </th>
+                                </tr>
+                            </thead>
+                            
+                            <!-- 테이블 바디 -->
+                            <tbody>
+                                <!-- 스펙 정보 -->
+                                <tr class="border-b border-white/10">
+                                    <td class="py-3 px-4 text-white font-medium bg-white/5">저장공간</td>
+                                    <td v-for="plan in plans" :key="plan.value" class="text-center py-3 px-4 text-white">
+                                        {{ plan.specs.storage }}
+                                    </td>
+                                </tr>
+                                <tr class="border-b border-white/10">
+                                    <td class="py-3 px-4 text-white font-medium bg-white/5">트래픽</td>
+                                    <td v-for="plan in plans" :key="plan.value" class="text-center py-3 px-4 text-white">
+                                        {{ plan.specs.traffic }}
+                                    </td>
+                                </tr>
+                                <tr class="border-b border-white/10">
+                                    <td class="py-3 px-4 text-white font-medium bg-white/5">서브도메인</td>
+                                    <td v-for="plan in plans" :key="plan.value" class="text-center py-3 px-4 text-white">
+                                        {{ plan.specs.domains }}
+                                    </td>
+                                </tr>
+                                
+                                <!-- 기능들 -->
+                                <tr class="border-b border-white/10">
+                                    <td class="py-3 px-4 text-white">Hostyle 광고제거</td>
+                                    <td v-for="plan in plans" :key="plan.value" class="text-center py-3 px-4">
+                                        <div v-if="plan.specs.features.includes('Hostyle 광고제거')" class="text-green-400">
+                                            <svg class="w-5 h-5 mx-auto" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                                            </svg>
+                                        </div>
+                                        <div v-else class="text-red-400">
+                                            <svg class="w-5 h-5 mx-auto" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                                            </svg>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <tr class="border-b border-white/10">
+                                    <td class="py-3 px-4 text-white">SEO</td>
+                                    <td v-for="plan in plans" :key="plan.value" class="text-center py-3 px-4">
+                                        <div v-if="plan.specs.features.includes('SEO')" class="text-green-400">
+                                            <svg class="w-5 h-5 mx-auto" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                                            </svg>
+                                        </div>
+                                        <div v-else class="text-white/30">-</div>
+                                    </td>
+                                </tr>
+                                <tr class="border-b border-white/10">
+                                    <td class="py-3 px-4 text-white">SSL</td>
+                                    <td v-for="plan in plans" :key="plan.value" class="text-center py-3 px-4">
+                                        <div v-if="plan.specs.features.includes('SSL')" class="text-green-400">
+                                            <svg class="w-5 h-5 mx-auto" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                                            </svg>
+                                        </div>
+                                        <div v-else class="text-red-400">
+                                            <svg class="w-5 h-5 mx-auto" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                                            </svg>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <tr class="border-b border-white/10">
+                                    <td class="py-3 px-4 text-white">SSL 인증서</td>
+                                    <td v-for="plan in plans" :key="plan.value" class="text-center py-3 px-4">
+                                        <div v-if="plan.specs.features.includes('SSL 인증서')" class="text-green-400">
+                                            <svg class="w-5 h-5 mx-auto" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                                            </svg>
+                                        </div>
+                                        <div v-else class="text-red-400">
+                                            <svg class="w-5 h-5 mx-auto" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                                            </svg>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <tr class="border-b border-white/10">
+                                    <td class="py-3 px-4 text-white">개별도메인</td>
+                                    <td v-for="plan in plans" :key="plan.value" class="text-center py-3 px-4">
+                                        <div v-if="plan.specs.features.includes('개별도메인')" class="text-green-400">
+                                            <svg class="w-5 h-5 mx-auto" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                                            </svg>
+                                        </div>
+                                        <div v-else class="text-red-400">
+                                            <svg class="w-5 h-5 mx-auto" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                                            </svg>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <tr class="border-b border-white/10">
+                                    <td class="py-3 px-4 text-white">게시판</td>
+                                    <td v-for="plan in plans" :key="plan.value" class="text-center py-3 px-4">
+                                        <div v-if="plan.specs.features.includes('게시판')" class="text-green-400">
+                                            <svg class="w-5 h-5 mx-auto" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                                            </svg>
+                                        </div>
+                                        <div v-else class="text-red-400">
+                                            <svg class="w-5 h-5 mx-auto" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                                            </svg>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <tr class="border-b border-white/10">
+                                    <td class="py-3 px-4 text-white">고급 분석</td>
+                                    <td v-for="plan in plans" :key="plan.value" class="text-center py-3 px-4">
+                                        <div v-if="plan.specs.features.includes('고급 분석')" class="text-green-400">
+                                            <svg class="w-5 h-5 mx-auto" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                                            </svg>
+                                        </div>
+                                        <div v-else class="text-red-400">
+                                            <svg class="w-5 h-5 mx-auto" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                                            </svg>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <tr class="border-b border-white/10">
+                                    <td class="py-3 px-4 text-white">고급 템플릿</td>
+                                    <td v-for="plan in plans" :key="plan.value" class="text-center py-3 px-4">
+                                        <div v-if="plan.specs.features.includes('고급 템플릿')" class="text-green-400">
+                                            <svg class="w-5 h-5 mx-auto" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                                            </svg>
+                                        </div>
+                                        <div v-else class="text-white/30">-</div>
+                                    </td>
+                                </tr>
+                                <tr class="border-b border-white/10">
+                                    <td class="py-3 px-4 text-white">드래그앤드랍 빌더</td>
+                                    <td v-for="plan in plans" :key="plan.value" class="text-center py-3 px-4">
+                                        <div v-if="plan.specs.features.includes('드래그앤드랍 빌더')" class="text-green-400">
+                                            <svg class="w-5 h-5 mx-auto" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                                            </svg>
+                                        </div>
+                                        <div v-else class="text-white/30">-</div>
+                                    </td>
+                                </tr>
+                                <tr class="border-b border-white/10">
+                                    <td class="py-3 px-4 text-white">백업</td>
+                                    <td v-for="plan in plans" :key="plan.value" class="text-center py-3 px-4">
+                                        <div v-if="plan.specs.features.includes('백업')" class="text-green-400">
+                                            <svg class="w-5 h-5 mx-auto" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                                            </svg>
+                                        </div>
+                                        <div v-else class="text-red-400">
+                                            <svg class="w-5 h-5 mx-auto" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                                            </svg>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <tr class="border-b border-white/10">
+                                    <td class="py-3 px-4 text-white">실시간 모니터링</td>
+                                    <td v-for="plan in plans" :key="plan.value" class="text-center py-3 px-4">
+                                        <div v-if="plan.specs.features.includes('실시간 모니터링')" class="text-green-400">
+                                            <svg class="w-5 h-5 mx-auto" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                                            </svg>
+                                        </div>
+                                        <div v-else class="text-white/30">-</div>
+                                    </td>
+                                </tr>
+                                <tr class="border-b border-white/10">
+                                    <td class="py-3 px-4 text-white">방문자 모니터링</td>
+                                    <td v-for="plan in plans" :key="plan.value" class="text-center py-3 px-4">
+                                        <div v-if="plan.specs.features.includes('방문자 모니터링')" class="text-green-400">
+                                            <svg class="w-5 h-5 mx-auto" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                                            </svg>
+                                        </div>
+                                        <div v-else class="text-red-400">
+                                            <svg class="w-5 h-5 mx-auto" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                                            </svg>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <tr class="border-b border-white/10">
+                                    <td class="py-3 px-4 text-white">이메일 지원</td>
+                                    <td v-for="plan in plans" :key="plan.value" class="text-center py-3 px-4">
+                                        <div v-if="plan.specs.features.includes('이메일 지원')" class="text-green-400">
+                                            <svg class="w-5 h-5 mx-auto" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                                            </svg>
+                                        </div>
+                                        <div v-else class="text-red-400">
+                                            <svg class="w-5 h-5 mx-auto" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                                            </svg>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <tr class="border-b border-white/10">
+                                    <td class="py-3 px-4 text-white">전용 IP</td>
+                                    <td v-for="plan in plans" :key="plan.value" class="text-center py-3 px-4">
+                                        <div v-if="plan.specs.features.includes('전용 IP')" class="text-green-400">
+                                            <svg class="w-5 h-5 mx-auto" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                                            </svg>
+                                        </div>
+                                        <div v-else class="text-red-400">
+                                            <svg class="w-5 h-5 mx-auto" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                                            </svg>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <tr class="border-b border-white/10">
+                                    <td class="py-3 px-4 text-white">커스텀 스크립트</td>
+                                    <td v-for="plan in plans" :key="plan.value" class="text-center py-3 px-4">
+                                        <div v-if="plan.specs.features.includes('커스텀 스크립트')" class="text-green-400">
+                                            <svg class="w-5 h-5 mx-auto" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                                            </svg>
+                                        </div>
+                                        <div v-else class="text-red-400">
+                                            <svg class="w-5 h-5 mx-auto" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                                            </svg>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <tr class="border-b border-white/10">
+                                    <td class="py-3 px-4 text-white">회원관리</td>
+                                    <td v-for="plan in plans" :key="plan.value" class="text-center py-3 px-4">
+                                        <div v-if="plan.specs.features.includes('회원관리')" class="text-green-400">
+                                            <svg class="w-5 h-5 mx-auto" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                                            </svg>
+                                        </div>
+                                        <div v-else class="text-red-400">
+                                            <svg class="w-5 h-5 mx-auto" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                                            </svg>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 환불 정책 모달 -->
+        <div v-if="showRefundModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div class="bg-gradient-to-br from-purple-900 to-blue-900 border border-white/20 rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
+                <!-- 모달 헤더 -->
+                <div class="bg-white/10 backdrop-blur-xl border-b border-white/20 p-6">
+                    <div class="flex justify-between items-center">
+                        <h3 class="text-2xl font-bold text-white">환불 정책</h3>
+                        <button 
+                            @click="showRefundModal = false"
+                            class="text-white/70 hover:text-white transition-colors"
+                        >
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- 모달 컨텐츠 -->
+                <div class="p-6 overflow-auto max-h-[calc(90vh-120px)]">
+                    <div class="space-y-6">
+                        <!-- 환불 기간 -->
+                        <div>
+                            <h4 class="text-lg font-bold text-white mb-3">환불 기간</h4>
+                            <div class="bg-white/5 rounded-lg p-4 space-y-3">
+                                <div class="flex items-center space-x-3">
+                                    <div class="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
+                                        <span class="text-white font-bold text-sm">1</span>
+                                    </div>
+                                    <div>
+                                        <div class="text-white font-medium">14일 이내</div>
+                                        <div class="text-white/70 text-sm">일할 계산 환불</div>
+                                    </div>
+                                </div>
+                                <div class="flex items-center space-x-3">
+                                    <div class="w-8 h-8 bg-yellow-500 rounded-full flex items-center justify-center">
+                                        <span class="text-white font-bold text-sm">2</span>
+                                    </div>
+                                    <div>
+                                        <div class="text-white font-medium">15일 이후</div>
+                                        <div class="text-white/70 text-sm">1개월 사용으로 간주</div>
+                                    </div>
+                                </div>
+                                <div class="flex items-center space-x-3">
+                                    <div class="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center">
+                                        <span class="text-white font-bold text-sm">3</span>
+                                    </div>
+                                    <div>
+                                        <div class="text-white font-medium">1개월 결제</div>
+                                        <div class="text-white/70 text-sm">14일 이후 환불 불가</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 중요 안내 -->
+                        <div>
+                            <h4 class="text-lg font-bold text-white mb-3">중요 안내</h4>
+                            <div class="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4">
+                                <div class="text-yellow-400 font-bold mb-2">⚠️ 할인 금액은 위약금으로 차감</div>
+                                <div class="text-white/80 text-sm space-y-2">
+                                    <div>• 3/6/12개월 할인 금액은 환불 시 위약금으로 차감</div>
+                                    <div>• 1개월 결제는 14일 이후 환불 불가</div>
+                                    <div>• 무료 체험 기간 중에는 환불 정책 적용되지 않음</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 환불 가능 사유 -->
+                        <div>
+                            <h4 class="text-lg font-bold text-white mb-3">환불 가능 사유</h4>
+                            <div class="bg-white/5 rounded-lg p-4 space-y-2">
+                                <div class="text-white/80 text-sm">• 서비스 품질 문제 (성능, 안정성 등)</div>
+                                <div class="text-white/80 text-sm">• 회사의 귀책 사유로 인한 서비스 장애</div>
+                                <div class="text-white/80 text-sm">• 단순 변심 (14일 이내)</div>
+                            </div>
+                        </div>
+
+                        <!-- 환불 제한 사유 -->
+                        <div>
+                            <h4 class="text-lg font-bold text-white mb-3">환불 제한 사유</h4>
+                            <div class="bg-white/5 rounded-lg p-4 space-y-2">
+                                <div class="text-white/80 text-sm">• 1개월 결제 후 14일 이후</div>
+                                <div class="text-white/80 text-sm">• 무료 체험 기간 중</div>
+                                <div class="text-white/80 text-sm">• 서비스 이용 약관 위반 시</div>
+                            </div>
+                        </div>
+
+                        <!-- 환불 금액 계산 -->
+                        <div>
+                            <h4 class="text-lg font-bold text-white mb-3">환불 금액 계산</h4>
+                            <div class="bg-white/5 rounded-lg p-4 space-y-3">
+                                <div class="text-white/80 text-sm font-bold">1개월 결제</div>
+                                <div class="text-white/60 text-xs ml-4">
+                                    • 14일 이내: 일할 계산 환불<br>
+                                    • 15일 이후: 환불 불가
+                                </div>
+                                
+                                <div class="text-white/80 text-sm font-bold">3/6/12개월 결제</div>
+                                <div class="text-white/60 text-xs ml-4">
+                                    • 5일 사용: 1개월치 일할 계산 + 나머지 개월 전액 환불<br>
+                                    • 15일 사용: 1개월 사용으로 간주 + 나머지 개월 전액 환불<br>
+                                    • 할인 금액은 위약금으로 차감
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="text-center text-white/50 text-xs mt-6">
+                            본 환불 정책은 전자상거래법 및 소비자보호법을 준수합니다.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</template> 
