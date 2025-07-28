@@ -156,8 +156,8 @@ watch(() => form.plan, updateSelectedPlan);
 // 할인된 가격 계산
 const getDiscountedPrice = (plan, months) => {
   const priceNum = typeof plan.price === 'number' ? plan.price : parseInt(plan.price, 10);
-  const selectedMonth = months.find(m => m.value === form.months);
-  const discount = selectedMonth ? selectedMonth.discount : 0;
+    const selectedMonth = months.find(m => m.value === form.months);
+    const discount = selectedMonth ? selectedMonth.discount : 0;
   return Math.round(priceNum * form.months * (1 - discount / 100));
 };
 
@@ -325,9 +325,9 @@ function handleSubmit() {
                                     ]"
                                     @click="form.region = region.value"
                                 >
-                                    <span class="text-2xl">{{ region.flag }}</span>
-                                    <div>
-                                        <div class="text-white font-medium">{{ region.label }}</div>
+                                        <span class="text-2xl">{{ region.flag }}</span>
+                                        <div>
+                                            <div class="text-white font-medium">{{ region.label }}</div>
                                     </div>
                                 </div>
                             </div>
@@ -362,7 +362,7 @@ function handleSubmit() {
                         <!-- 4단계: 요금제 선택 -->
                         <div class="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-8">
                             <div class="flex items-start justify-between">
-                                <h3 class="text-2xl font-bold text-white mb-6">4. 요금제 선택</h3>
+                            <h3 class="text-2xl font-bold text-white mb-6">4. 요금제 선택</h3>
                                 <button type="button" class="ml-auto px-4 py-2 bg-purple-600 text-white rounded shadow text-sm font-semibold hover:bg-purple-700 transition" @click="showFeatureModal = true">
                                     요금제별 기능
                                 </button>

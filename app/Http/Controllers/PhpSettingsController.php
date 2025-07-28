@@ -33,10 +33,35 @@ class PhpSettingsController extends Controller
                 'domain' => $server->domain,
                 'fqdn' => $server->fqdn ?? 'N/A'
             ]);
-            $vhostConfig = $this->readVhostConfig($cyberpanelServer, $server->domain);
             
-            // PHP 설정 파싱
-            $phpSettings = $this->parsePhpSettings($vhostConfig);
+            try {
+                Log::info('SSH 연결 시도', [
+                    'server_id' => $serverId,
+                    'cyberpanel_server_id' => $cyberpanelServer->id,
+                    'ssh_key_path' => $cyberpanelServer->ssh_key_path,
+                    'ip_address' => $cyberpanelServer->ip_address
+                ]);
+                
+                $vhostConfig = $this->readVhostConfig($cyberpanelServer, $server->domain);
+                // PHP 설정 파싱
+                $phpSettings = $this->parsePhpSettings($vhostConfig);
+                
+                Log::info('SSH 연결 성공, PHP 설정 파싱 완료', [
+                    'php_settings' => $phpSettings
+                ]);
+            } catch (\Exception $sshError) {
+                Log::warning('SSH 연결 실패, 기본값 사용', [
+                    'error' => $sshError->getMessage()
+                ]);
+                // SSH 실패 시 기본값 사용
+                $phpSettings = [
+                    'memory_limit' => '128M',
+                    'upload_max_filesize' => '16M',
+                    'post_max_size' => '20M',
+                    'max_execution_time' => 30,
+                    'max_input_time' => 60,
+                ];
+            }
             
             // 플랜별 권장값 가져오기
             $plan = DB::table('plans')->where('name', $server->plan)->first();
@@ -210,8 +235,11 @@ class PhpSettingsController extends Controller
      */
     private function readVhostConfig($cyberpanelServer, $domain)
     {
+        // SSH 키 경로 설정
+        $sshKeyPath = $cyberpanelServer->ssh_key_path ?? '~/.ssh/id_ed25519';
+        
         // 먼저 vhosts 디렉토리의 내용을 확인하여 정확한 도메인 폴더를 찾기
-        $listCommand = "ssh -i /var/www/hostylecms/storage/ssh_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR {$cyberpanelServer->ssh_user}@{$cyberpanelServer->host} \"ls -la /usr/local/lsws/conf/vhosts/\"";
+        $listCommand = "ssh -i {$sshKeyPath} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR {$cyberpanelServer->ssh_user}@{$cyberpanelServer->ip_address} \"ls -la /usr/local/lsws/conf/vhosts/\"";
         
         $listOutput = [];
         $listReturnCode = 0;
@@ -259,7 +287,7 @@ class PhpSettingsController extends Controller
         }
 
         // vhost.conf 파일 읽기
-        $sshCommand = "ssh -i /var/www/hostylecms/storage/ssh_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR {$cyberpanelServer->ssh_user}@{$cyberpanelServer->host} \"cat /usr/local/lsws/conf/vhosts/{$targetFolder}/vhost.conf\"";
+        $sshCommand = "ssh -i {$sshKeyPath} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR {$cyberpanelServer->ssh_user}@{$cyberpanelServer->ip_address} \"cat /usr/local/lsws/conf/vhosts/{$targetFolder}/vhost.conf\"";
         
         $output = [];
         $returnCode = 0;
@@ -316,8 +344,11 @@ class PhpSettingsController extends Controller
      */
     private function writeVhostConfig($cyberpanelServer, $domain, $config)
     {
+        // SSH 키 경로 설정
+        $sshKeyPath = $cyberpanelServer->ssh_key_path ?? '~/.ssh/id_ed25519';
+        
         // 먼저 vhosts 디렉토리의 내용을 확인하여 정확한 도메인 폴더를 찾기
-        $listCommand = "ssh -i /var/www/hostylecms/storage/ssh_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR {$cyberpanelServer->ssh_user}@{$cyberpanelServer->host} \"ls -la /usr/local/lsws/conf/vhosts/\"";
+        $listCommand = "ssh -i {$sshKeyPath} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR {$cyberpanelServer->ssh_user}@{$cyberpanelServer->ip_address} \"ls -la /usr/local/lsws/conf/vhosts/\"";
         
         $listOutput = [];
         $listReturnCode = 0;
@@ -370,7 +401,7 @@ class PhpSettingsController extends Controller
         Log::info('임시 파일 생성', ['temp_file' => $tempFile, 'file_size' => filesize($tempFile)]);
 
         // SSH를 통해 파일 업로드
-        $scpCommand = "scp -i /var/www/hostylecms/storage/ssh_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR {$tempFile} {$cyberpanelServer->ssh_user}@{$cyberpanelServer->host}:/usr/local/lsws/conf/vhosts/{$targetFolder}/vhost.conf";
+        $scpCommand = "scp -i {$sshKeyPath} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR {$tempFile} {$cyberpanelServer->ssh_user}@{$cyberpanelServer->ip_address}:/usr/local/lsws/conf/vhosts/{$targetFolder}/vhost.conf";
         Log::info('SCP 명령어', ['command' => $scpCommand]);
         
         $output = [];
@@ -392,7 +423,9 @@ class PhpSettingsController extends Controller
      */
     private function reloadServer($cyberpanelServer)
     {
-        $sshCommand = "ssh -i /var/www/hostylecms/storage/ssh_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR {$cyberpanelServer->ssh_user}@{$cyberpanelServer->host} \"/usr/local/lsws/bin/lswsctrl reload\"";
+        // SSH 키 경로 설정
+        $sshKeyPath = $cyberpanelServer->ssh_key_path ?? '~/.ssh/id_ed25519';
+        $sshCommand = "ssh -i {$sshKeyPath} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR {$cyberpanelServer->ssh_user}@{$cyberpanelServer->ip_address} \"/usr/local/lsws/bin/lswsctrl reload\"";
         
         $output = [];
         $returnCode = 0;
