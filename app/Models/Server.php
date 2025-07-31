@@ -42,6 +42,11 @@ class Server extends Model
         return $this->hasMany(Order::class);
     }
 
+    public function cyberpanelServer()
+    {
+        return $this->belongsTo(CyberpanelServer::class, 'cyberpanel_server_id');
+    }
+
     /**
      * 활성 주문들 (환불되지 않은 주문들)
      */

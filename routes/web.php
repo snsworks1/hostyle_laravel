@@ -187,7 +187,7 @@ Route::middleware([
         $controller = app(\App\Http\Controllers\ServerController::class);
         return $controller->renderWithServerProps($id, 'Server/Admin/Ssl');
     })->name('server.admin.ssl');
-    Route::get('/server/{id}/admin/phpmyadmin', fn($id) => Inertia::render('Server/Admin/Phpmyadmin'))->name('server.admin.phpmyadmin');
+    
     Route::get('/server/{id}/admin/filemanager', fn($id) => Inertia::render('Server/Admin/Filemanager'))->name('server.admin.filemanager');
     Route::get('/server/{id}/admin/mysql', fn($id) => Inertia::render('Server/Admin/Mysql'))->name('server.admin.mysql');
     Route::get('/server/{id}/wordpress/themes', fn($id) => Inertia::render('Server/Wordpress/Themes'))->name('server.wordpress.themes');
@@ -215,6 +215,9 @@ Route::post('/server/{server}/databases/verify-deletion', [\App\Http\Controllers
 Route::delete('/server/{server}/databases', [\App\Http\Controllers\DatabaseController::class, 'deleteDatabase'])->name('server.databases.delete');
 Route::post('/server/{server}/databases/verify-password-change', [\App\Http\Controllers\DatabaseController::class, 'verifyUserForDatabasePasswordChange'])->name('server.databases.verify-password-change');
 Route::post('/server/{server}/databases/change-password', [\App\Http\Controllers\DatabaseController::class, 'changeDatabasePassword'])->name('server.databases.change-password');
+
+// phpMyAdmin 자동 로그인 라우트
+Route::post('/server/{server}/phpmyadmin/auto-login-form', [\App\Http\Controllers\PhpMyAdminController::class, 'autoLoginToPhpMyAdmin'])->name('server.phpmyadmin.auto-login-form.post');
 });
 
 Route::middleware([

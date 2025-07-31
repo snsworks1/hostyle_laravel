@@ -587,7 +587,7 @@ class ServerController extends Controller
                             ],
                             ['title' => '백업', 'route' => 'server.admin.backup'],
                             ['title' => 'SSL', 'route' => 'server.admin.ssl'],
-                            ['title' => '웹 데이터베이스 바로가기', 'route' => 'server.admin.phpmyadmin'],
+                            ['title' => 'phpMyAdmin 자동로그인', 'route' => 'javascript:void(0)', 'onclick' => 'showPhpMyAdminModal'],
                             ['title' => '파일관리자 바로가기', 'route' => 'server.admin.filemanager'],
                         ]
                     ]
@@ -606,7 +606,7 @@ class ServerController extends Controller
                         ]
                     ],
                     ['title' => '테마설치', 'route' => 'server.wordpress.themes'],
-                    ['title' => '웹 데이터베이스 바로가기', 'route' => 'server.admin.phpmyadmin'],
+                    ['title' => 'phpMyAdmin 자동로그인', 'route' => 'javascript:void(0)', 'onclick' => 'showPhpMyAdminModal'],
                     ['title' => '파일관리자 바로가기', 'route' => 'server.admin.filemanager'],
                 ];
 
@@ -622,7 +622,7 @@ class ServerController extends Controller
                             ['title' => 'SSL', 'route' => 'server.admin.ssl'],
                         ]
                     ],
-                    ['title' => '웹 데이터베이스 바로가기', 'route' => 'server.admin.phpmyadmin'],
+                    ['title' => 'phpMyAdmin 자동로그인', 'route' => 'javascript:void(0)', 'onclick' => 'showPhpMyAdminModal'],
                     ['title' => '파일관리자 바로가기', 'route' => 'server.admin.filemanager'],
                 ];
 
