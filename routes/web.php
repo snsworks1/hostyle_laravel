@@ -207,6 +207,14 @@ Route::middleware([
     Route::post('/server/{server}/verify-user-mysql-password', [ServerSettingsController::class, 'verifyUserForMysqlPassword'])->name('server.verify-user-mysql-password');
     Route::post('/server/{server}/change-mysql-password', [ServerSettingsController::class, 'changeMysqlPassword'])->name('server.change-mysql-password');
     Route::get('/server/{server}/initial-mysql-password', [ServerSettingsController::class, 'getInitialMysqlPassword'])->name('server.initial-mysql-password');
+    
+    // 데이터베이스 관리 API
+    Route::get('/server/{server}/databases', [\App\Http\Controllers\DatabaseController::class, 'fetchDatabases'])->name('server.databases.fetch');
+Route::post('/server/{server}/databases', [\App\Http\Controllers\DatabaseController::class, 'createDatabase'])->name('server.databases.create');
+Route::post('/server/{server}/databases/verify-deletion', [\App\Http\Controllers\DatabaseController::class, 'verifyUserForDatabaseDeletion'])->name('server.databases.verify-deletion');
+Route::delete('/server/{server}/databases', [\App\Http\Controllers\DatabaseController::class, 'deleteDatabase'])->name('server.databases.delete');
+Route::post('/server/{server}/databases/verify-password-change', [\App\Http\Controllers\DatabaseController::class, 'verifyUserForDatabasePasswordChange'])->name('server.databases.verify-password-change');
+Route::post('/server/{server}/databases/change-password', [\App\Http\Controllers\DatabaseController::class, 'changeDatabasePassword'])->name('server.databases.change-password');
 });
 
 Route::middleware([
