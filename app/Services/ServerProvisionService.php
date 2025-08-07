@@ -56,6 +56,14 @@ class ServerProvisionService
         // 플랜별 PHP 설정 자동 적용
         $this->applyPlanPhpSettings($serverModel, $selected);
 
+        // FTP 계정 생성
+        $ftpResult = $this->createFTPAccount($selected, $serverModel, $input['user_password']);
+        if (!$ftpResult['success']) {
+            Log::error('FTP 계정 생성 실패', $ftpResult);
+        }
+
+
+
         return ['success' => true, 'server_id' => $serverModel->id];
     }
 
@@ -63,7 +71,7 @@ class ServerProvisionService
     {
         try {
             $ssh = new SSH2($server->ip_address, 22);
-            $key = PublicKeyLoader::load(file_get_contents('/var/www/.ssh/id_ed25519'));
+            $key = PublicKeyLoader::load(file_get_contents('/var/www/hostylecms/storage/ssh_key'));
             if (!$ssh->login($server->ssh_user ?? 'root', $key)) {
                 Log::warning('SSH 로그인 실패', ['server_id' => $server->id]);
                 return false;
@@ -440,6 +448,56 @@ class ServerProvisionService
             throw new \Exception('vhost.conf 파일을 업로드할 수 없습니다: ' . implode("\n", $output));
         }
     }
+
+    /**
+     * CyberPanel에 FTP 계정 생성
+     */
+    private function createFTPAccount($cyberpanelServer, $server, $password)
+    {
+        try {
+            $cpHost = $cyberpanelServer->host;
+            $cpPort = $cyberpanelServer->api_port;
+            $cpUser = $cyberpanelServer->api_user;
+            $cpPass = $cyberpanelServer->api_password;
+            $cpToken = $cyberpanelServer->api_token;
+            $cpSSL = $cyberpanelServer->ssl;
+            $protocol = $cpSSL ? 'https' : 'http';
+            $cpUrl = "$protocol://$cpHost:$cpPort/cloudAPI/";
+            $cpAuth = $cpToken ?: base64_encode($cpUser . ':' . $cpPass);
+
+            $ftpPayload = [
+                'serverUserName' => $cpUser,
+                'controller' => 'submitFTPCreation',
+                'ftpDomain' => $server->fqdn,
+                'ftpUserName' => $server->domain,
+                'passwordByPass' => $password,
+                'path' => ''
+            ];
+
+            Log::info('CyberPanel FTP 계정 생성 요청', $ftpPayload);
+
+            $response = Http::timeout(20)
+                ->withHeaders([
+                    'Authorization' => $cpAuth,
+                    'Content-Type' => 'application/json'
+                ])
+                ->withOptions(['verify' => false])
+                ->post($cpUrl, $ftpPayload);
+
+            $json = $response->json();
+            Log::info('CyberPanel FTP 계정 생성 응답', $json);
+
+            if (!($json['status'] ?? 0)) {
+                return ['success' => false, 'reason' => 'CyberPanel FTP 계정 생성 실패: ' . ($json['error_message'] ?? '')];
+            }
+
+            return ['success' => true];
+        } catch (\Exception $e) {
+            return ['success' => false, 'reason' => 'CyberPanel FTP API 예외: ' . $e->getMessage()];
+        }
+    }
+
+
 
     /**
      * 서버 reload

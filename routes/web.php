@@ -14,6 +14,8 @@ use App\Http\Middleware\AdminMiddleware;
 use App\Http\Controllers\Admin\AdminCyberpanelController;
 use App\Http\Controllers\ServerSettingsController;
 use App\Http\Controllers\PhpSettingsController;
+use App\Http\Controllers\CyberPanelFileManagerController;
+
 use Illuminate\Support\Facades\Response;
 use phpseclib3\Net\SSH2;
 use phpseclib3\Crypt\PublicKeyLoader;
@@ -189,6 +191,7 @@ Route::middleware([
     })->name('server.admin.ssl');
     
     Route::get('/server/{id}/admin/filemanager', fn($id) => Inertia::render('Server/Admin/Filemanager'))->name('server.admin.filemanager');
+
     Route::get('/server/{id}/admin/mysql', fn($id) => Inertia::render('Server/Admin/Mysql'))->name('server.admin.mysql');
     Route::get('/server/{id}/wordpress/themes', fn($id) => Inertia::render('Server/Wordpress/Themes'))->name('server.wordpress.themes');
     Route::get('/server/{id}/admin/php-settings', [ServerController::class, 'phpSettings'])->name('server.admin.php-settings');
@@ -218,6 +221,15 @@ Route::post('/server/{server}/databases/change-password', [\App\Http\Controllers
 
 // phpMyAdmin 자동 로그인 라우트
 Route::post('/server/{server}/phpmyadmin/auto-login-form', [\App\Http\Controllers\PhpMyAdminController::class, 'autoLoginToPhpMyAdmin'])->name('server.phpmyadmin.auto-login-form.post');
+
+// CyberPanel 파일매니저 SSO 라우트
+Route::get('/server/{server}/cyberpanel/filemanager', [CyberPanelFileManagerController::class, 'redirectToFileManager'])
+    ->name('cyberpanel.filemanager')
+    ->withoutMiddleware([\App\Http\Middleware\VerifyCsrfToken::class]);
+
+
+
+
 });
 
 Route::middleware([
@@ -285,4 +297,6 @@ Route::middleware(['auth', AdminMiddleware::class])->group(function () {
     Route::post('/admin/plans/{id}', [\App\Http\Controllers\Admin\AdminPlanController::class, 'update']);
     Route::delete('/admin/plans/{id}', [\App\Http\Controllers\Admin\AdminPlanController::class, 'destroy'])->name('admin.plans.destroy');
 });
+
+
 

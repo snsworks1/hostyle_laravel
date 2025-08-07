@@ -164,6 +164,9 @@ const handleOnClick = (onclickFunction) => {
         showPhpMyAdminModalDirect();
     } else if (onclickFunction === 'showPhpMyAdminModalDirect') {
         showPhpMyAdminModalDirect();
+    
+    } else if (onclickFunction === 'showCyberPanelFileManagerModalDirect') {
+        showCyberPanelFileManagerModalDirect();
     } else if (typeof window[onclickFunction] === 'function') {
         window[onclickFunction]();
     }
@@ -255,6 +258,13 @@ const showPhpMyAdminModalDirect = () => {
     // 전역 함수로 등록
     window.closePhpMyAdminModalDirect = closePhpMyAdminModalDirect;
     window.submitPhpMyAdminLoginDirect = () => submitPhpMyAdminLoginDirect(serverId);
+    
+
+    
+    // CyberPanel 파일매니저 전역 함수 등록
+    window.closeCyberPanelFileManagerModalDirect = closeCyberPanelFileManagerModalDirect;
+    window.submitCyberPanelFileManagerLoginDirect = () => submitCyberPanelFileManagerLoginDirect(serverId);
+    window.showCyberPanelFileManagerModalDirect = showCyberPanelFileManagerModalDirect;
 };
 
 const closePhpMyAdminModalDirect = () => {
@@ -314,4 +324,230 @@ const submitPhpMyAdminLoginDirect = (serverId) => {
                 loginBtn.disabled = false;
             });
 };
+
+// CyberPanel 파일매니저 관련 함수들
+const showCyberPanelFileManagerModalDirect = () => {
+    // 현재 서버 ID 가져오기
+    const path = window.location.pathname;
+    const match = path.match(/\/server\/(\d+)/);
+    if (!match) {
+        alert('서버 정보를 찾을 수 없습니다.');
+        return;
+    }
+    
+    const serverId = match[1];
+    console.log('CyberPanel 파일매니저 직접 접근 - 서버 ID:', serverId);
+    
+    // CSRF 토큰 가져오기
+    const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || document.querySelector('input[name="_token"]')?.value;
+    
+    // 바로 새 창 열기 (로딩 화면 없이)
+    const newWindow = window.open('', '_blank', 'width=1200,height=800,scrollbars=yes,resizable=yes');
+    
+    if (!newWindow) {
+        alert('팝업이 차단되었습니다. 브라우저에서 팝업을 허용해주세요.');
+        return;
+    }
+    
+    // 새 창에 로딩 메시지 표시
+    newWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <title>CyberPanel 파일매니저 로딩 중...</title>
+            <style>
+                body { 
+                    font-family: Arial, sans-serif; 
+                    text-align: center; 
+                    padding: 50px; 
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    color: white;
+                    margin: 0;
+                    height: 100vh;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                }
+                .container { 
+                    background: rgba(255,255,255,0.1); 
+                    padding: 30px; 
+                    border-radius: 10px; 
+                    backdrop-filter: blur(10px);
+                }
+                .spinner {
+                    width: 50px;
+                    height: 50px;
+                    border: 3px solid rgba(255,255,255,0.3);
+                    border-top: 3px solid white;
+                    border-radius: 50%;
+                    animation: spin 1s linear infinite;
+                    margin: 0 auto 20px;
+                }
+                @keyframes spin {
+                    0% { transform: rotate(0deg); }
+                    100% { transform: rotate(360deg); }
+                }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="spinner"></div>
+                <h2>CyberPanel 파일매니저 로딩 중...</h2>
+                <p>SSO 인증을 통해 파일매니저에 접속 중입니다.</p>
+            </div>
+        </body>
+        </html>
+    `);
+    newWindow.document.close();
+    
+    // API 요청
+    fetch(`/server/${serverId}/cyberpanel/filemanager/sso`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': token,
+            'Accept': 'text/html'
+        }
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.text();
+    })
+    .then(html => {
+        // 새 창에 파일매니저 HTML 작성
+        newWindow.document.write(html);
+        newWindow.document.close();
+        
+        // 성공 메시지 표시
+        console.log('CyberPanel 파일매니저 연결 성공');
+    })
+    .catch(error => {
+        console.error('CyberPanel 파일매니저 연결 오류:', error);
+        
+        // 오류 메시지를 새 창에 표시
+        newWindow.document.write(`
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="UTF-8">
+                <title>CyberPanel 파일매니저 오류</title>
+                <style>
+                    body { 
+                        font-family: Arial, sans-serif; 
+                        text-align: center; 
+                        padding: 50px; 
+                        background: linear-gradient(135deg, #f87171 0%, #dc2626 100%);
+                        color: white;
+                        margin: 0;
+                        height: 100vh;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                    }
+                    .container { 
+                        background: rgba(255,255,255,0.1); 
+                        padding: 30px; 
+                        border-radius: 10px; 
+                        backdrop-filter: blur(10px);
+                    }
+                    .error-icon {
+                        font-size: 48px;
+                        margin-bottom: 20px;
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <div class="error-icon">❌</div>
+                    <h2>CyberPanel 파일매니저 연결 실패</h2>
+                    <p>오류: ${error.message}</p>
+                    <button onclick="window.close()" style="
+                        background: white; 
+                        color: #dc2626; 
+                        border: none; 
+                        padding: 10px 20px; 
+                        border-radius: 5px; 
+                        cursor: pointer; 
+                        margin-top: 20px;
+                    ">창 닫기</button>
+                </div>
+            </body>
+            </html>
+        `);
+        newWindow.document.close();
+    });
+};
+
+const closeCyberPanelFileManagerModalDirect = () => {
+    const modal = document.getElementById('cyberpanel-filemanager-modal');
+    if (modal) {
+        modal.remove();
+    }
+};
+
+const submitCyberPanelFileManagerLoginDirect = (serverId) => {
+    // 전역 변수에서 serverId 가져오기
+    const actualServerId = window.currentCyberPanelFileManagerServerId || serverId;
+    console.log('CyberPanel 파일매니저 연결 시도 - 전역 변수에서 서버 ID:', actualServerId);
+    
+    const errorDiv = document.getElementById('cyberpanelFileManagerModalError');
+    
+    // 로딩 상태 표시
+    const loginBtn = document.querySelector('#cyberpanel-filemanager-modal button:first-child');
+    loginBtn.innerHTML = '<span>연결 중...</span>';
+    loginBtn.disabled = true;
+    
+    // CSRF 토큰 가져오기
+    const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || document.querySelector('input[name="_token"]')?.value;
+    
+    console.log('CyberPanel 파일매니저 연결 시도 - 최종 서버 ID:', actualServerId);
+    
+    // API 요청
+    fetch(`/server/${actualServerId}/cyberpanel/filemanager/sso`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': token,
+            'Accept': 'text/html'
+        }
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.text();
+    })
+    .then(html => {
+        // HTML 응답을 새 창에서 열기
+        const newWindow = window.open('', '_blank', 'width=1200,height=800,scrollbars=yes,resizable=yes');
+        if (newWindow) {
+            newWindow.document.write(html);
+            newWindow.document.close();
+            
+            // 모달 닫기
+            closeCyberPanelFileManagerModalDirect();
+            
+            // 성공 메시지 표시
+            console.log('CyberPanel 파일매니저 연결 성공');
+        } else {
+            errorDiv.textContent = '팝업이 차단되었습니다. 브라우저에서 팝업을 허용해주세요.';
+            errorDiv.classList.remove('hidden');
+        }
+    })
+    .catch(error => {
+        console.error('CyberPanel 파일매니저 연결 오류:', error);
+        errorDiv.textContent = 'CyberPanel 파일매니저 연결 중 오류가 발생했습니다: ' + error.message;
+        errorDiv.classList.remove('hidden');
+    })
+    .finally(() => {
+        // 로딩 상태 해제
+        loginBtn.innerHTML = '<span>CyberPanel 파일매니저 열기</span>';
+        loginBtn.disabled = false;
+    });
+};
+
+
 </script> 

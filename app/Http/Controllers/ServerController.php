@@ -587,8 +587,9 @@ class ServerController extends Controller
                             ],
                             ['title' => '백업', 'route' => 'server.admin.backup'],
                             ['title' => 'SSL', 'route' => 'server.admin.ssl'],
-                            ['title' => 'phpMyAdmin 자동로그인', 'route' => 'javascript:void(0)', 'onclick' => 'showPhpMyAdminModal'],
-                            ['title' => '파일관리자 바로가기', 'route' => 'server.admin.filemanager'],
+                            ['title' => '웹데이터베이스', 'route' => 'javascript:void(0)', 'onclick' => 'showPhpMyAdminModal'],
+
+                            ['title' => '웹파일매니저', 'route' => 'cyberpanel.filemanager'],
                         ]
                     ]
                 ];
@@ -606,8 +607,9 @@ class ServerController extends Controller
                         ]
                     ],
                     ['title' => '테마설치', 'route' => 'server.wordpress.themes'],
-                    ['title' => 'phpMyAdmin 자동로그인', 'route' => 'javascript:void(0)', 'onclick' => 'showPhpMyAdminModal'],
-                    ['title' => '파일관리자 바로가기', 'route' => 'server.admin.filemanager'],
+                    ['title' => '웹데이터베이스', 'route' => 'javascript:void(0)', 'onclick' => 'showPhpMyAdminModal'],
+
+                    ['title' => '웹파일매니저', 'route' => 'cyberpanel.filemanager'],
                 ];
 
             case 'custom':
@@ -622,8 +624,9 @@ class ServerController extends Controller
                             ['title' => 'SSL', 'route' => 'server.admin.ssl'],
                         ]
                     ],
-                    ['title' => 'phpMyAdmin 자동로그인', 'route' => 'javascript:void(0)', 'onclick' => 'showPhpMyAdminModal'],
+                    ['title' => '웹데이터베이스', 'route' => 'javascript:void(0)', 'onclick' => 'showPhpMyAdminModal'],
                     ['title' => '파일관리자 바로가기', 'route' => 'server.admin.filemanager'],
+                    ['title' => '웹파일매니저', 'route' => 'cyberpanel.filemanager'],
                 ];
 
             default:
