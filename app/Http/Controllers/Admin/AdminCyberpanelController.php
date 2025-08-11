@@ -64,12 +64,20 @@ class AdminCyberpanelController extends Controller
         'body' => $body
     ]);
 
-    $response = \Http::timeout(10)
+    $response = \Http::timeout(30)
         ->withHeaders([
             'Authorization' => $auth,
             'Content-Type' => 'application/json'
         ])
-        ->withOptions(['verify' => false])
+        ->withOptions([
+            'verify' => false,
+            'allow_redirects' => [
+                'max' => 10,
+                'strict' => false,
+                'referer' => true,
+                'protocols' => ['http', 'https']
+            ]
+        ])
         ->post($url, $body);
 
     $json = $response->json();
@@ -116,12 +124,20 @@ class AdminCyberpanelController extends Controller
             'body' => $body
         ]);
 
-        $response = \Http::timeout(15)
+        $response = \Http::timeout(30)
             ->withHeaders([
                 'Authorization' => 'Basic ' . $auth,
                 'Content-Type' => 'application/json'
             ])
-            ->withOptions(['verify' => false])
+            ->withOptions([
+                'verify' => false,
+                'allow_redirects' => [
+                    'max' => 10,
+                    'strict' => false,
+                    'referer' => true,
+                    'protocols' => ['http', 'https']
+                ]
+            ])
             ->send('POST', $url, [
                 'body' => $body
             ]);

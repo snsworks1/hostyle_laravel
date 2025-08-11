@@ -329,13 +329,41 @@ class ServerController extends Controller
                 'page' => 1
             ];
             try {
-                $res = \Http::withHeaders([
-                    'Authorization' => $cpAuth,
-                    'Content-Type' => 'application/json'
-                ])->withOptions(['verify' => false])->post($cpUrl, $payload);
-                if ($res->ok() && ($res['status'] ?? 0)) {
-                    $list = json_decode($res['data'], true);
-                    $websiteInfo = collect($list)->firstWhere('domain', $server->domain . '.hostylefree.xyz');
+                // cURL을 직접 사용하여 더 세밀한 제어
+                $ch = curl_init();
+                curl_setopt_array($ch, [
+                    CURLOPT_URL => $cpUrl,
+                    CURLOPT_RETURNTRANSFER => true,
+                    CURLOPT_POST => true,
+                    CURLOPT_POSTFIELDS => json_encode($payload),
+                    CURLOPT_HTTPHEADER => [
+                        'Authorization: ' . $cpAuth,
+                        'Content-Type: application/json',
+                        'User-Agent: Laravel/10.0'
+                    ],
+                    CURLOPT_TIMEOUT => 30,
+                    CURLOPT_SSL_VERIFYPEER => false,
+                    CURLOPT_SSL_VERIFYHOST => false,
+                    CURLOPT_FOLLOWLOCATION => false, // 리다이렉트 비활성화
+                    CURLOPT_MAXREDIRS => 0, // 리다이렉트 최대 0회
+                    CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1
+                ]);
+                
+                $response = curl_exec($ch);
+                $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                $error = curl_error($ch);
+                curl_close($ch);
+                
+                if ($error) {
+                    throw new \Exception('cURL 오류: ' . $error);
+                }
+                
+                if ($httpCode >= 200 && $httpCode < 300) {
+                    $jsonResponse = json_decode($response, true);
+                    if (($jsonResponse['status'] ?? 0)) {
+                        $list = json_decode($jsonResponse['data'], true);
+                        $websiteInfo = collect($list)->firstWhere('domain', $server->domain . '.hostylefree.xyz');
+                    }
                 }
             } catch (\Exception $e) {
                 $websiteInfo = null;
@@ -413,26 +441,92 @@ class ServerController extends Controller
 
         $cpUrl = ($cyber->ssl ? 'https' : 'http') . "://{$cyber->host}:{$cyber->api_port}/cloudAPI/";
         $cpAuth = $cyber->api_token ?: base64_encode($cyber->api_user . ':' . $cyber->api_password);
+        
+        // 먼저 서버 상태 확인
+        $healthCheck = [
+            'serverUserName' => $cyber->api_user,
+            'controller' => 'verifyLogin'
+        ];
+        
         $payload = [
             'serverUserName' => $cyber->api_user,
             'controller' => 'fetchWebsiteData',
             'domainName' => $server->domain . '.hostylefree.xyz',
         ];
         try {
-            $res = \Http::withHeaders([
-                'Authorization' => $cpAuth,
-                'Content-Type' => 'application/json'
-            ])->withOptions(['verify' => false])->post($cpUrl, $payload);
-            if ($res->ok()) {
-                return response()->json($res->json());
+            // 먼저 서버 상태 확인
+            $ch = curl_init();
+            curl_setopt_array($ch, [
+                CURLOPT_URL => $cpUrl,
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_POST => true,
+                CURLOPT_POSTFIELDS => json_encode($healthCheck),
+                CURLOPT_HTTPHEADER => [
+                    'Authorization: ' . $cpAuth,
+                    'Content-Type: application/json',
+                    'User-Agent: Laravel/10.0'
+                ],
+                CURLOPT_TIMEOUT => 10,
+                CURLOPT_SSL_VERIFYPEER => false,
+                CURLOPT_SSL_VERIFYHOST => false,
+                CURLOPT_FOLLOWLOCATION => false,
+                CURLOPT_MAXREDIRS => 0,
+                CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1
+            ]);
+            
+            $healthResponse = curl_exec($ch);
+            $healthHttpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $healthError = curl_error($ch);
+            curl_close($ch);
+            
+            if ($healthError) {
+                throw new \Exception('CyberPanel 서버 연결 실패: ' . $healthError);
+            }
+            
+            if ($healthHttpCode !== 200) {
+                throw new \Exception('CyberPanel 서버 응답 오류: HTTP ' . $healthHttpCode);
+            }
+            
+            // 이제 실제 데이터 요청
+            $ch = curl_init();
+            curl_setopt_array($ch, [
+                CURLOPT_URL => $cpUrl,
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_POST => true,
+                CURLOPT_POSTFIELDS => json_encode($payload),
+                CURLOPT_HTTPHEADER => [
+                    'Authorization: ' . $cpAuth,
+                    'Content-Type: application/json',
+                    'User-Agent: Laravel/10.0'
+                ],
+                CURLOPT_TIMEOUT => 30,
+                CURLOPT_SSL_VERIFYPEER => false,
+                CURLOPT_SSL_VERIFYHOST => false,
+                CURLOPT_FOLLOWLOCATION => false,
+                CURLOPT_MAXREDIRS => 0,
+                CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1
+            ]);
+            
+            $response = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $error = curl_error($ch);
+            curl_close($ch);
+            
+            if ($error) {
+                throw new \Exception('cURL 오류: ' . $error);
+            }
+            
+            if ($httpCode >= 200 && $httpCode < 300) {
+                $jsonResponse = json_decode($response, true);
+                return response()->json($jsonResponse);
             } else {
                 \Log::error('CyberPanel API 호출 실패', [
                     'url' => $cpUrl,
                     'payload' => $payload,
-                    'status' => $res->status(),
-                    'body' => $res->body()
+                    'status' => $httpCode,
+                    'body' => $response
                 ]);
-                return response()->json(['error' => 'CyberPanel API 호출 실패', 'body' => $res->body()], 500);
+                return response()->json(['error' => 'CyberPanel API 호출 실패', 'body' => $response], 500);
             }
         } catch (\Exception $e) {
             \Log::error('CyberPanel API 예외', [

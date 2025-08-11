@@ -25,7 +25,7 @@ class CyberPanelService
     private function generateSecurityToken($domain)
     {
         // 현재 시간을 5분 단위로 반올림 (토큰 유효시간 5분)
-        $current_time = floor(time() / 300) * 300;
+        $current_time = floor(time() / 3600) * 3600;
         $secret = 'CYBERPANEL_SECRET'; // CyberPanel과 동일한 시크릿
         
         return hash('sha256', $domain . ':' . $current_time . ':' . $secret);

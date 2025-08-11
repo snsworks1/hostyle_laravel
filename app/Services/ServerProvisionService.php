@@ -122,12 +122,20 @@ class ServerProvisionService
                 'websitesLimit' => 1,
                 'selectedACL' => 'user'
             ];
-            $res1 = Http::timeout(20)
+            $res1 = Http::timeout(30)
                 ->withHeaders([
                     'Authorization' => $cpAuth,
                     'Content-Type' => 'application/json'
                 ])
-                ->withOptions(['verify' => false])
+                ->withOptions([
+                    'verify' => false,
+                    'allow_redirects' => [
+                        'max' => 10,
+                        'strict' => false,
+                        'referer' => true,
+                        'protocols' => ['http', 'https']
+                    ]
+                ])
                 ->post($cpUrl, $userPayload);
             $json1 = $res1->json();
             if (!($json1['status'] ?? 0)) {
@@ -147,12 +155,20 @@ class ServerProvisionService
                 'openBasedir' => 1
             ];
             Log::info('CyberPanel 웹사이트 생성 요청', $sitePayload);
-            $res2 = Http::timeout(20)
+            $res2 = Http::timeout(30)
                 ->withHeaders([
                     'Authorization' => $cpAuth,
                     'Content-Type' => 'application/json'
                 ])
-                ->withOptions(['verify' => false])
+                ->withOptions([
+                    'verify' => false,
+                    'allow_redirects' => [
+                        'max' => 10,
+                        'strict' => false,
+                        'referer' => true,
+                        'protocols' => ['http', 'https']
+                    ]
+                ])
                 ->post($cpUrl, $sitePayload);
             $json2 = $res2->json();
             Log::info('CyberPanel 웹사이트 생성 응답', $json2);
@@ -175,12 +191,20 @@ class ServerProvisionService
             $maxTries = 20; // 최대 20초까지 시도
             $success = false;
             for ($i = 0; $i < $maxTries; $i++) {
-                $res3 = Http::timeout(20)
+                $res3 = Http::timeout(30)
                     ->withHeaders([
                         'Authorization' => $cpAuth,
                         'Content-Type' => 'application/json'
                     ])
-                    ->withOptions(['verify' => false])
+                    ->withOptions([
+                        'verify' => false,
+                        'allow_redirects' => [
+                            'max' => 10,
+                            'strict' => false,
+                            'referer' => true,
+                            'protocols' => ['http', 'https']
+                        ]
+                    ])
                     ->post($cpUrl, $dbPayload);
                 $json3 = $res3->json();
                 Log::info('CyberPanel DB 생성 재시도', ['try' => $i+1, 'response' => $json3]);
