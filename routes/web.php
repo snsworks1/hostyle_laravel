@@ -163,6 +163,10 @@ Route::middleware([
     Route::get('/server/{id}/board/manage', fn($id) => Inertia::render('Server/Board/Manage'))->name('server.board.manage');
     Route::get('/server/{id}/forms/manage', fn($id) => Inertia::render('Server/Forms/Manage'))->name('server.forms.manage');
     Route::get('/server/{id}/calendar/manage', fn($id) => Inertia::render('Server/Calendar/Manage'))->name('server.calendar.manage');
+    
+    // 웹빌더
+    Route::get('/server/{id}/builder', fn($id) => Inertia::render('Builder/Index'))->name('server.builder');
+    Route::get('/server/{id}/builder/{projectId?}', fn($id, $projectId = null) => Inertia::render('Builder/Index'))->name('server.builder.project');
 
     // 통계
     Route::get('/server/{id}/stats/visits', function ($id) {
