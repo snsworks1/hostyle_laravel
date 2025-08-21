@@ -164,6 +164,19 @@ Route::middleware([
     Route::get('/server/{id}/forms/manage', fn($id) => Inertia::render('Server/Forms/Manage'))->name('server.forms.manage');
     Route::get('/server/{id}/calendar/manage', fn($id) => Inertia::render('Server/Calendar/Manage'))->name('server.calendar.manage');
 
+    // 웹 빌더
+    Route::get('/server/{id}/builder', [\App\Http\Controllers\Builder\BuilderController::class, 'pages'])->name('server.builder.pages');
+    Route::get('/server/{id}/builder/app', [\App\Http\Controllers\Builder\BuilderController::class, 'app'])->name('server.builder.app');
+    
+    // 웹 빌더 API (웹 라우트로) - CSRF 검증 제외
+    Route::group(['prefix' => 'server/{id}/builder/api', 'middleware' => ['web', 'auth']], function ($id) {
+        Route::get('/pages', [\App\Http\Controllers\Builder\BuilderApiController::class, 'index'])->name('server.builder.api.pages');
+        Route::get('/pages/{pageId}', [\App\Http\Controllers\Builder\BuilderApiController::class, 'show'])->name('server.builder.api.page');
+        Route::post('/pages/{pageId}', [\App\Http\Controllers\Builder\BuilderApiController::class, 'save'])->name('server.builder.api.save');
+        Route::post('/pages/{pageId}/publish', [\App\Http\Controllers\Builder\BuilderApiController::class, 'publish'])->name('server.builder.api.publish');
+        Route::post('/pages', [\App\Http\Controllers\Builder\BuilderApiController::class, 'create'])->name('server.builder.api.create');
+    })->withoutMiddleware([\App\Http\Middleware\VerifyCsrfToken::class]);
+
     // 통계
     Route::get('/server/{id}/stats/visits', function ($id) {
         $controller = app(\App\Http\Controllers\ServerController::class);

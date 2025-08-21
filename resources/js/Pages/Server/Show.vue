@@ -23,7 +23,7 @@
                             <div class="text-base text-white/60 mt-2">플랜: <span class="font-bold text-white/90">{{ props.server.plan }}</span> | 만료일: <span class="font-bold text-white/90">{{ expiresAt }}</span></div>
                         </div>
                         <div class="flex gap-3 flex-wrap justify-end items-center relative">
-                            <button class="px-6 py-3 rounded-full bg-pink-500 text-white text-base font-bold shadow hover:bg-pink-600 transition">사이트 설정</button>
+                            <button @click="goToBuilder" class="px-6 py-3 rounded-full bg-pink-500 text-white text-base font-bold shadow hover:bg-pink-600 transition">사이트 설정</button>
                             <button class="px-6 py-3 rounded-full bg-blue-500 text-white text-base font-bold shadow hover:bg-blue-600 transition">업그레이드</button>
                             <button class="px-6 py-3 rounded-full bg-green-500 text-white text-base font-bold shadow hover:bg-green-600 transition">통계 보기</button>
                             <!-- 더보기 드롭다운 -->
@@ -108,6 +108,7 @@
 
 <script setup>
 import { ref, onMounted, computed } from 'vue';
+import { router } from '@inertiajs/vue3';
 import ServerHeader from '@/Components/ServerHeader.vue';
 import ServerSidebar from '@/Components/ServerSidebar.vue';
 
@@ -117,6 +118,17 @@ const props = defineProps({
   sidebarMenus: { type: Array, default: () => [] },
   websiteInfo: { type: Object, default: null }
 });
+
+// 웹 빌더로 이동하는 함수 (새탭으로 열기)
+function goToBuilder() {
+  console.log('goToBuilder 함수 실행됨');
+  console.log('서버 ID:', props.server.id);
+  console.log('이동할 URL:', `/server/${props.server.id}/builder/app`);
+  
+  // 새탭으로 열기
+  const url = `/server/${props.server.id}/builder/app`;
+  window.open(url, '_blank');
+}
 
 const isDropdownOpen = ref(false);
 const showMore = ref(false);

@@ -660,6 +660,11 @@ class ServerController extends Controller
                         ]
                     ],
                     [
+                        'title' => '웹 빌더',
+                        'icon' => 'puzzle',
+                        'route' => 'server.builder.pages',
+                    ],
+                    [
                         'title' => '통계',
                         'icon' => 'chart-bar',
                         'children' => [

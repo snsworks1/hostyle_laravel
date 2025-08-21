@@ -25,7 +25,10 @@
         "@editorjs/editorjs": "^2.30.8",
         "@tiptap/starter-kit": "^3.0.7",
         "@tiptap/vue-3": "^3.0.7",
+        "@vueuse/core": "^13.7.0",
         "grapesjs": "^0.22.12",
-        "lucide-vue-next": "^0.525.0"
+        "lucide-vue-next": "^0.525.0",
+        "pinia": "^3.0.3",
+        "vue-draggable-next": "^2.3.0"
     }
 }
