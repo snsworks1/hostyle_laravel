@@ -151,7 +151,7 @@
         <button 
           v-for="tool in tools" 
           :key="tool.id"
-          @click="openPalette(tool.id, tool.title)"
+          @click="openPalette(tool.id)"
           class="w-10 h-10 bg-white border border-gray-200 rounded-xl flex items-center justify-center hover:bg-blue-50 hover:border-blue-300 hover:scale-110 hover:shadow-lg transition-all duration-200 group relative mb-2 hover:-translate-y-0.5"
           :title="tool.title"
         >
@@ -246,6 +246,8 @@ const props = defineProps<{
 const store = useBuilder()
 const showAddPageModal = ref(false)
 const showAddPopupModal = ref(false)
+const showPageAddModal = ref(false)
+const showPopupAddModal = ref(false)
 const showHelpModal = ref(false)
 const showElementEditModal = ref(false)
 const selectedElement = ref<any>(null)

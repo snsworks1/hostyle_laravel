@@ -9,11 +9,8 @@
     >
       <template #item="{ element }">
         <PageNode 
-          :node="element" 
-          @select="selectPage"
-          @edit="editPage"
-          @duplicate="duplicatePage"
-          @delete="deletePage"
+          :page="element" 
+          :current-page="currentPage"
         />
       </template>
     </draggable>
@@ -27,6 +24,9 @@ import { useBuilder } from '@/builder/store';
 import PageNode from './PageNode.vue';
 
 const store = useBuilder();
+
+// 현재 선택된 페이지
+const currentPage = computed(() => store.currentPage);
 
 // 트리 데이터 (계층 구조)
 const treeData = computed({
